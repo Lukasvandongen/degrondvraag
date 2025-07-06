@@ -17,7 +17,8 @@ import { Sun, Moon, ThumbsUp, ThumbsDown, Lock, LogOut, Plus } from "lucide-reac
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ChatPanel from "./ChatPanel";
-
+import { useEditor, EditorContent } from '@tiptap/react'
+import StarterKit from '@tiptap/starter-kit'
 
 // --- Firebase ---
 import { initializeApp } from "firebase/app";
@@ -426,20 +427,12 @@ function AdminPanel({ user }) {
               <option value="published">Gepubliceerd</option>
             </select>
           </div>
-          <textarea
-            placeholder="Essay body (Markdown)"
-            className="border p-2 rounded w-full text-black font-mono whitespace-pre-wrap"
-            rows={10}
-            value={form.body}
-            onChange={e=>setForm(f=>({...f,body:e.target.value}))}
-          />
+          <EssayEditor value={form.body} onChange={(html) => setForm(f => ({ ...f, body: html }))} />
           <div className="mt-4">
             <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
             <div className="border p-4 rounded bg-white text-black prose max-w-none">
               <div className="prose prose-invert dark:prose-invert"></div>
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {form.body}
-                </ReactMarkdown>
+              <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: form.body }} />
             </div>
           </div>
 
@@ -461,7 +454,20 @@ function AdminPanel({ user }) {
   );
 }
 
-
+function EssayEditor({ value, onChange }) {
+      const editor = useEditor({
+        extensions: [StarterKit],
+        content: value,
+        onUpdate({ editor }) {
+          onChange(editor.getHTML())
+    }
+      })
+        return (
+    <div className="border rounded p-4 bg-white text-black">
+      <EditorContent editor={editor} />
+    </div>
+  )
+}
 
 // ----------------------------------- APP MAIN -----------------------------------
 export default function App() {
