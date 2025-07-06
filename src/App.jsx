@@ -417,16 +417,29 @@ function AdminPanel({ user }) {
       {showForm && (
         <form className="space-y-4 mb-8" onSubmit={handleSubmit}>
           <div className="grid sm:grid-cols-2 gap-4">
-            <input type="text" placeholder="Unieke ID (slug)" className="border p-2 rounded w-full" value={form.id} onChange={e=>setForm(f=>({...f,id:e.target.value}))} required />
-            <input type="text" placeholder="Titel" className="border p-2 rounded w-full" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} required />
-            <input type="text" placeholder="Korte samenvatting" className="border p-2 rounded w-full col-span-2" value={form.excerpt} onChange={e=>setForm(f=>({...f,excerpt:e.target.value}))} />
-            <input type="date" className="border p-2 rounded w-full" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} />
-            <select className="border p-2 rounded w-full" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
+            <input type="text" placeholder="Unieke ID (slug)" className="border p-2 rounded w-full text-black" value={form.id} onChange={e=>setForm(f=>({...f,id:e.target.value}))} required />
+            <input type="text" placeholder="Titel" className="border p-2 rounded w-full text-black" value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} required />
+            <input type="text" placeholder="Korte samenvatting" className="border p-2 rounded w-full text-black col-span-2" value={form.excerpt} onChange={e=>setForm(f=>({...f,excerpt:e.target.value}))} />
+            <input type="date" className="border p-2 rounded w-full text-black" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value}))} />
+            <select className="border p-2 rounded w-full text-black" value={form.status} onChange={e=>setForm(f=>({...f,status:e.target.value}))}>
               <option value="draft">Concept</option>
               <option value="published">Gepubliceerd</option>
             </select>
           </div>
-          <textarea placeholder="Essay body (Markdown)" className="border p-2 rounded w-full" rows={10} value={form.body} onChange={e=>setForm(f=>({...f,body:e.target.value}))} />
+          <textarea
+            placeholder="Essay body (Markdown)"
+            className="border p-2 rounded w-full text-black font-mono whitespace-pre-wrap"
+            rows={10}
+            value={form.body}
+            onChange={e=>setForm(f=>({...f,body:e.target.value}))}
+          />
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
+            <div className="border p-4 rounded bg-white text-black prose max-w-none">
+              <ReactMarkdown>{form.body}</ReactMarkdown>
+            </div>
+          </div>
+
           <button className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900">Opslaan</button>
         </form>
       )}
