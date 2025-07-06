@@ -24,6 +24,7 @@ import AboutPage from './pages/AboutPage'
 import RoadmapPage from './pages/RoadmapPage'
 import PrivacyPage from './pages/PrivacyPage'
 
+
 // --- Firebase ---
 import { initializeApp } from "firebase/app";
 import {
@@ -603,7 +604,6 @@ function RoadmapPage() {
   );
 }
 
-// PrivacyPage.jsx
 
 function PrivacyPage() {
   return (
