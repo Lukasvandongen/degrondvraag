@@ -436,7 +436,9 @@ function AdminPanel({ user }) {
           <div className="mt-4">
             <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
             <div className="border p-4 rounded bg-white text-black prose max-w-none">
-              <ReactMarkdown>{form.body}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {form.body}
+                </ReactMarkdown>
             </div>
           </div>
 
