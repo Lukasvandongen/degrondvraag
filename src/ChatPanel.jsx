@@ -45,7 +45,7 @@ export default function ChatPanel({ essay, onClose }) {
     setMessages([
       {
         from: "clarus",
-        text: `Welkom terug. Waar in \"${essay.title}\" zit je gedachte vast?`,
+        text: `Welkom terug. Ik ben aan het opstarten, dit kan een minuutje duren. Waar in \"${essay.title}\" zit je gedachte vast?`,
       },
     ]);
   };
@@ -60,11 +60,12 @@ export default function ChatPanel({ essay, onClose }) {
         content: m.text,
       }));
 
-      const res = await fetch("http://localhost:5000/api/clarus", {
+      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ essay: essay.body, history }),
       });
+
       const data = await res.json();
       setMessages((msgs) => [...msgs, { from: "clarus", text: data.antwoord }]);
     } catch {
