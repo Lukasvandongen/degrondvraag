@@ -17,8 +17,6 @@ import { Sun, Moon, ThumbsUp, ThumbsDown, Lock, LogOut, Plus } from "lucide-reac
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ChatPanel from "./ChatPanel";
-import HomePage from "./pages/HomePage"; // bijv.
-import EssaysPage from "./pages/EssaysPage";
 
 // --- Firebase ---
 import { initializeApp } from "firebase/app";
