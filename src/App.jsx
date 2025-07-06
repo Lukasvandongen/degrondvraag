@@ -220,7 +220,7 @@ function HomePage() {
 
 
 // ---------------------------------------------------- ESSAYS ------------------------------------------------------------------------
-function EssaysPage() {
+function EssaysoverviewPage() {
    const [essays, setEssays] = useState([]);
 
   useEffect(() => {
@@ -512,7 +512,7 @@ export default function App() {
         <main className="px-6 pb-12 pt-4">
           <Routes>
             <Route path="/" element={<HomePage />} />
-            <Route path="/essays" element={<EssaysPage />} />
+            <Route path="/essays" element={<EssaysoverviewPage />} />
             <Route path="/essays/:id" element={<EssayPage />} />
             <Route path="/over" element={<AboutPage />} />
             <Route path="/roadmap" element={<RoadmapPage />} />
