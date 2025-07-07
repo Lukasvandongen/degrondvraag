@@ -605,6 +605,7 @@ function RoadmapPage() {
           <li>Essay tags, viewcount & filtermogelijkheden</li>
           <li>Verbeterde Clarus-gesprekken (sneller, contextueler)</li>
           <li>Feedback pagina (email naar info@degrondvraag.com)</li>
+          <li>RAG-Database opzetten en koppelen aan backend, bijbel vectorizen en op basis van tokens uitlezen om hallucinaties te voorkomen.</li>
         </ul>
       </div>
 
