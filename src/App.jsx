@@ -426,7 +426,7 @@ function AdminPanel({ user }) {
               <option value="published">Gepubliceerd</option>
             </select>
           </div>
-          <EssayEditor value={form.body} onChange={val => setForm(f => ({ ...f, body: val }))} />
+          <TipTapEditor value={form.body} onChange={val => setForm(f => ({ ...f, body: val }))} />
 
           <div className="mt-4">
             <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
@@ -453,21 +453,6 @@ function AdminPanel({ user }) {
       </div>
     </div>
   );
-}
-
-function EssayEditor({ value, onChange }) {
-      const editor = useEditor({
-        extensions: [StarterKit],
-        content: value,
-        onUpdate({ editor }) {
-          onChange(editor.getHTML())
-    }
-      })
-        return (
-    <div className="border rounded p-4 bg-white text-black">
-      <EditorContent editor={editor} />
-    </div>
-  )
 }
 
 // ----------------------------------- APP MAIN -----------------------------------
