@@ -314,18 +314,19 @@ if (!essay) {
         <h1>{essay.title}</h1>
         <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between">
           {essay.date}
-          {/* Zet hier je likes-component */}
+          { /* Hier komen de likes component */ }
+           <Likes articleId={essay.id} />
         </p>
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {essay.body}
-        </ReactMarkdown>
-
-        {/* Zet hier je comments-component */}
-        
+  
+        <div dangerouslySetInnerHTML={{ __html: essay.body }} />
+        { /* Hier komen de comments */ }
+        <Comments articleId={essay.id} />
+  
         <button onClick={() => navigate(-1)} className="mt-12 bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900">
           Terug naar overzicht
-        </button>
+          </button>
       </article>
+
     
 
       {!chatOpen && (
