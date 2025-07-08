@@ -17,8 +17,7 @@ import { Sun, Moon, ThumbsUp, ThumbsDown, Lock, LogOut, Plus } from "lucide-reac
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import ChatPanel from "./ChatPanel";
-import { useEditor, EditorContent } from '@tiptap/react'
-import StarterKit from '@tiptap/starter-kit'
+import TipTapEditor from './TipTapEditor'
 
 // --- Firebase ---
 import { initializeApp } from "firebase/app";
@@ -427,14 +426,16 @@ function AdminPanel({ user }) {
               <option value="published">Gepubliceerd</option>
             </select>
           </div>
-          <EssayEditor value={form.body} onChange={(html) => setForm(f => ({ ...f, body: html }))} />
+          <EssayEditor value={form.body} onChange={val => setForm(f => ({ ...f, body: val }))} />
+
           <div className="mt-4">
             <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
-            <div className="border p-4 rounded bg-white text-black prose max-w-none">
-              <div className="prose prose-invert dark:prose-invert"></div>
-              <div className="prose dark:prose-invert max-w-none" dangerouslySetInnerHTML={{ __html: form.body }} />
-            </div>
+            <div
+              className="prose dark:prose-invert max-w-none border p-4 rounded bg-white text-black dark:bg-gray-900 dark:text-white"
+              dangerouslySetInnerHTML={{ __html: form.body }}
+            />
           </div>
+
 
           <button className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900">Opslaan</button>
         </form>
