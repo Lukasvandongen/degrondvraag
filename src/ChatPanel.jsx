@@ -148,7 +148,10 @@ export default function ChatPanel({ essay, onClose }) {
                     : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-50 rounded-xl rounded-br-none p-3 self-end ml-auto"
                 }`}
               >
-                {m.text}
+                {m.text.split("\n").map((line, idx) => (
+                <p key={idx} className="mb-2 last:mb-0">{line}</p>
+              ))}
+
               </div>
             ))}
             <div ref={bottomRef} />
