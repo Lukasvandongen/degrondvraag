@@ -221,6 +221,8 @@ function HomePage() {
 // ---------------------------------------------------- ESSAYS ------------------------------------------------------------------------
 function EssaysoverviewPage() {
    const [essays, setEssays] = useState([]);
+    const CATEGORIEEN = ["geloof", "filosofie", "ethiek", "AI", "maatschappij", "wetenschap"];
+    const [selectedCategory, setSelectedCategory] = useState(null);
 
   useEffect(() => {
     const q = query(collection(db, "essays"), orderBy("date", "desc"));
@@ -462,7 +464,6 @@ function AdminPanel({ user }) {
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const CATEGORIEEN = ["geloof", "filosofie", "ethiek", "AI", "maatschappij", "wetenschap"];
-  const [selectedCategory, setSelectedCategory] = useState(null);
   const [form, setForm] = useState({
     title: "",
     id: "",
