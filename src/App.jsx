@@ -14,8 +14,6 @@ import {
   useNavigate,
 } from "react-router-dom";
 import { Sun, Moon, ThumbsUp, ThumbsDown, Lock, LogOut, Plus } from "lucide-react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
 import ChatPanel from "./ChatPanel";
 import TipTapEditor from './TipTapEditor'
 
@@ -33,6 +31,8 @@ import {
   getDoc,
   setDoc,
   deleteDoc,
+  updateDoc,
+  increment,
   getDocs,
 } from "firebase/firestore";
 import {
@@ -237,18 +237,56 @@ function EssaysoverviewPage() {
   return (
     <section className="space-y-8 max-w-4xl mx-auto">
       <h2 className="text-3xl font-semibold">Essays</h2>
+      <div className="flex flex-wrap gap-2 mb-4">
+  <button
+    onClick={() => setSelectedCategory(null)}
+    className={`px-3 py-1 rounded-full text-sm border ${
+      selectedCategory === null
+        ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-black"
+        : "bg-white text-black dark:bg-zinc-900 dark:text-white"
+    }`}
+  >
+    Alle categorieën
+  </button>
+  {CATEGORIEEN.map((cat) => (
+    <button
+      key={cat}
+      onClick={() => setSelectedCategory(cat)}
+      className={`px-3 py-1 rounded-full text-sm border ${
+        selectedCategory === cat
+          ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-black"
+          : "bg-white text-black dark:bg-zinc-900 dark:text-white"
+      }`}
+    >
+      {cat}
+    </button>
+  ))}
+</div>
+
       <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {essays.map((e) => {
+        {essays
+        .filter((e) =>
+          !selectedCategory || (e.categories ?? []).includes(selectedCategory)
+        )
+        .map((e) => {
+
           const Wrapper = e.status === "published" ? Link : "div";
           return (
             <Wrapper
               key={e.id}
               to={e.status === "published" ? `/essays/${e.id}` : undefined}
-              className={`border rounded-xl p-6 flex flex-col justify-between dark:border-gray-700 ${e.status === "draft" ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
+              className={`relative border rounded-xl p-6 flex flex-col justify-between dark:border-gray-700 ${e.status === "draft" ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"}`}
             >
+              <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
+                {(e.views ?? 0)} 👁
+              </span>
+
               <div>
                 <h3 className="text-xl font-bold mb-1">{e.title}</h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{e.date}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  {(e.views ?? 0)} keer bekeken
+                </p>
                 <p className="text-sm">{e.excerpt}</p>
               </div>
               {e.status === "draft" && (
@@ -287,7 +325,33 @@ function EssayPage() {
     setLoading(false); // <== dit verplaatsen naar buiten de if/else!
   };
   fetchEssay();
+
+  const fetchAndCount = async () => {
+    const docRef = doc(db, "essays", id);
+    const snap = await getDoc(docRef);
+
+    if (snap.exists() && snap.data().status === "published") {
+      // 1. Zet state
+      if (isMounted) {
+        setEssay({ id: snap.id, ...snap.data() });
+      }
+      // 2. Increment views (laat Firestore veld auto-aanmaken)
+      try {
+        await updateDoc(docRef, { views: increment(1) });
+      } catch (err) {
+        console.error("Kon views niet verhogen:", err);
+      }
+    } else {
+      if (isMounted) setEssay(null);
+    }
+
+    if (isMounted) setLoading(false);
+  };
+
+  fetchAndCount();
+  return () => { isMounted = false; };
 }, [id]);
+
 
 if (loading) {
   return (
@@ -310,13 +374,19 @@ if (!essay) {
 
   return (
     <>
-      <article className="prose dark:prose-invert mx-auto">
-        <h1>{essay.title}</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 flex items-center justify-between">
-          {essay.date}
-          { /* Hier komen de likes component */ }
-           <Likes articleId={essay.id} />
-        </p>
+      <article className="prose dark:prose-invert mx-auto relative">
+        <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
+          {(essay.views ?? 0)} 👁
+       </span>
+
+      <h1>{essay.title}</h1>
+      <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-4 flex-wrap">
+        <span>{essay.date}</span>
+        <span>{(essay.views ?? 0)} keer bekeken</span>
+        <Likes articleId={essay.id} />
+      </div>
+
+
   
         <div dangerouslySetInnerHTML={{ __html: essay.body }} />
         { /* Hier komen de comments */ }
@@ -391,195 +461,236 @@ function AdminPanel({ user }) {
   const [essays, setEssays] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const CATEGORIEEN = ["geloof", "filosofie", "ethiek", "AI", "maatschappij", "wetenschap"];
+  const [selectedCategory, setSelectedCategory] = useState(null);
   const [form, setForm] = useState({
     title: "",
     id: "",
     excerpt: "",
     body: "",
-    date: new Date().toISOString().slice(0,10),
+    date: new Date().toISOString().slice(0, 10),
     status: "draft",
+    categories: [],
   });
+
   useEffect(() => {
     const q = query(collection(db, "essays"), orderBy("date", "desc"));
     return onSnapshot(q, (snap) => {
       setEssays(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
   }, []);
-  
+
   const handleEdit = (essay) => {
-  setIsEditing(true);
-  setShowForm(true);
-  setForm({
-    title: essay.title || "",
-    id: essay.id || "",
-    excerpt: essay.excerpt || "",
-    body: essay.body || "",
-    date: essay.date || new Date().toISOString().slice(0,10),
-    status: essay.status || "draft"
+    setIsEditing(true);
+    setShowForm(true);
+    setForm({
+      title: essay.title || "",
+      id: essay.id || "",
+      excerpt: essay.excerpt || "",
+      body: essay.body || "",
+      date: essay.date || new Date().toISOString().slice(0, 10),
+      status: essay.status || "draft",
+      categories: essay.categories || [],
     });
   };
 
   const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (!form.id || !form.title) return;
-  await setDoc(doc(db, "essays", form.id), { ...form });
-  setShowForm(false);
-  setIsEditing(false);
-  setForm({
-    title: "",
-    id: "",
-    excerpt: "",
-    body: "",
-    date: new Date().toISOString().slice(0, 10),
-    status: "draft",
+    e.preventDefault();
+    if (!form.id || !form.title) return;
+    await setDoc(doc(db, "essays", form.id), { ...form });
+    setShowForm(false);
+    setIsEditing(false);
+    setForm({
+      title: "",
+      id: "",
+      excerpt: "",
+      body: "",
+      date: new Date().toISOString().slice(0, 10),
+      status: "draft",
+      categories: [],
     });
   };
 
   const handleCancel = () => {
-  setShowForm(false);
-  setIsEditing(false);
-  setForm({
-    title: "",
-    id: "",
-    excerpt: "",
-    body: "",
-    date: new Date().toISOString().slice(0, 10),
-    status: "draft",
+    setShowForm(false);
+    setIsEditing(false);
+    setForm({
+      title: "",
+      id: "",
+      excerpt: "",
+      body: "",
+      date: new Date().toISOString().slice(0, 10),
+      status: "draft",
+      categories: [],
     });
   };
 
   return (
-  <div className="max-w-3xl mx-auto my-12">
-    <h2 className="text-2xl font-bold mb-6">Admin Console</h2>
-    <button
-      onClick={() => {
-        setIsEditing(false);
-        setForm({
-          title: "",
-          id: "",
-          excerpt: "",
-          body: "",
-          date: new Date().toISOString().slice(0, 10),
-          status: "draft",
-        });
-        setShowForm(true);
-      }}
-      className="mb-6 flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-    >
-      <Plus size={16} />
-      Nieuw essay
-    </button>
+    <div className="max-w-3xl mx-auto my-12">
+      <h2 className="text-2xl font-bold mb-6">Admin Console</h2>
+      <button
+        onClick={() => {
+          setIsEditing(false);
+          setForm({
+            title: "",
+            id: "",
+            excerpt: "",
+            body: "",
+            date: new Date().toISOString().slice(0, 10),
+            status: "draft",
+            categories: [],
+          });
+          setShowForm(true);
+        }}
+        className="mb-6 flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
+      >
+        <Plus size={16} />
+        Nieuw essay
+      </button>
 
-    {showForm && (
-      <form className="space-y-4 mb-8" onSubmit={handleSubmit}>
-        {isEditing && (
-          <p className="text-sm text-yellow-500 font-medium">Bewerken van bestaand essay</p>
-        )}
-        <div className="grid sm:grid-cols-2 gap-4">
-          <input
-            type="text"
-            placeholder="Unieke ID (slug)"
-            className="border p-2 rounded w-full text-black"
-            value={form.id}
-            onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
-            required
-            disabled={isEditing}
-          />
-          <input
-            type="text"
-            placeholder="Titel"
-            className="border p-2 rounded w-full text-black"
-            value={form.title}
-            onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Korte samenvatting"
-            className="border p-2 rounded w-full text-black col-span-2"
-            value={form.excerpt}
-            onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
-          />
-          <input
-            type="date"
-            className="border p-2 rounded w-full text-black"
-            value={form.date}
-            onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-          />
-          <select
-            className="border p-2 rounded w-full text-black"
-            value={form.status}
-            onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-          >
-            <option value="draft">Concept</option>
-            <option value="published">Gepubliceerd</option>
-          </select>
-        </div>
-
-        <TipTapEditor value={form.body} onChange={(val) => setForm((f) => ({ ...f, body: val }))} />
-
-        <div className="mt-4">
-          <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
-          <div
-            className="prose dark:prose-invert max-w-none border p-4 rounded bg-white text-black dark:bg-gray-900 dark:text-white"
-            dangerouslySetInnerHTML={{ __html: form.body }}
-          />
-        </div>
-
-        <div className="flex gap-2">
-          <button
-            type="submit"
-            className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-          >
-            Opslaan
-          </button>
-          <button
-            type="button"
-            onClick={handleCancel}
-            className="bg-gray-200 text-gray-900 px-4 py-2 rounded dark:bg-gray-800 dark:text-white"
-          >
-            Annuleer
-          </button>
-        </div>
-      </form>
-    )}
-
-    <div className="divide-y dark:divide-gray-800">
-      {essays.map((e) => (
-        <div key={e.id} className="py-4 flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
-          <span className="font-bold">{e.title}</span>
-          <span className="text-xs text-gray-500">{e.id}</span>
-          <span className="text-xs text-gray-500">{e.date}</span>
-          <span className="text-xs text-gray-500">{e.status}</span>
-
-          {e.status === "draft" && (
-            <button
-              className="text-blue-500 text-xs underline"
-              onClick={async () => {
-                await setDoc(doc(db, "essays", e.id), { ...e, status: "published" });
-              }}
-            >
-              Publiceer
-            </button>
+      {showForm && (
+        <form className="space-y-4 mb-8" onSubmit={handleSubmit}>
+          {isEditing && (
+            <p className="text-sm text-yellow-500 font-medium">Bewerken van bestaand essay</p>
           )}
+          <div className="grid sm:grid-cols-2 gap-4">
+            <input
+              type="text"
+              placeholder="Unieke ID (slug)"
+              className="border p-2 rounded w-full text-black"
+              value={form.id}
+              onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
+              required
+              disabled={isEditing}
+            />
+            <input
+              type="text"
+              placeholder="Titel"
+              className="border p-2 rounded w-full text-black"
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              required
+            />
+            <input
+              type="text"
+              placeholder="Korte samenvatting"
+              className="border p-2 rounded w-full text-black col-span-2"
+              value={form.excerpt}
+              onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
+            />
+            <input
+              type="date"
+              className="border p-2 rounded w-full text-black"
+              value={form.date}
+              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
+            />
+            <select
+              className="border p-2 rounded w-full text-black"
+              value={form.status}
+              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
+            >
+              <option value="draft">Concept</option>
+              <option value="published">Gepubliceerd</option>
+            </select>
+          </div>
 
-          <button
-            className="text-green-500 text-xs underline"
-            onClick={() => handleEdit(e)}
-          >
-            Bewerken
-          </button>
+          {/* ✅ Categorieën selectie */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Categorieën
+            </label>
+            <select
+              multiple
+              value={form.categories}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  categories: Array.from(e.target.selectedOptions, (o) => o.value),
+                }))
+              }
+              className="border p-2 rounded w-full text-black dark:bg-gray-900 dark:text-white"
+            >
+              {CATEGORIEEN.map((cat) => (
+                <option key={cat} value={cat}>
+                  {cat}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Houd Ctrl (Windows) of Cmd (Mac) ingedrukt om meerdere te selecteren
+            </p>
+          </div>
 
-          <button
-            className="text-red-500 text-xs underline"
-            onClick={async () => await deleteDoc(doc(db, "essays", e.id))}
+          <TipTapEditor
+            value={form.body}
+            onChange={(val) => setForm((f) => ({ ...f, body: val }))}
+          />
+
+          <div className="mt-4">
+            <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
+            <div
+              className="prose dark:prose-invert max-w-none border p-4 rounded bg-white text-black dark:bg-gray-900 dark:text-white"
+              dangerouslySetInnerHTML={{ __html: form.body }}
+            />
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
+            >
+              Opslaan
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="bg-gray-200 text-gray-900 px-4 py-2 rounded dark:bg-gray-800 dark:text-white"
+            >
+              Annuleer
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="divide-y dark:divide-gray-800">
+        {essays.map((e) => (
+          <div
+            key={e.id}
+            className="py-4 flex flex-col md:flex-row md:items-center gap-2 md:gap-6"
           >
-            Verwijder
-          </button>
-        </div>
-      ))}
+            <span className="font-bold">{e.title}</span>
+            <span className="text-xs text-gray-500">{e.id}</span>
+            <span className="text-xs text-gray-500">{e.date}</span>
+            <span className="text-xs text-gray-500">{e.status}</span>
+
+            {e.status === "draft" && (
+              <button
+                className="text-blue-500 text-xs underline"
+                onClick={async () => {
+                  await setDoc(doc(db, "essays", e.id), { ...e, status: "published" });
+                }}
+              >
+                Publiceer
+              </button>
+            )}
+
+            <button
+              className="text-green-500 text-xs underline"
+              onClick={() => handleEdit(e)}
+            >
+              Bewerken
+            </button>
+
+            <button
+              className="text-red-500 text-xs underline"
+              onClick={async () => await deleteDoc(doc(db, "essays", e.id))}
+            >
+              Verwijder
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
-  </div>
   );
 }
 
