@@ -306,59 +306,52 @@ function EssaysoverviewPage() {
 
 //----------------------------------- ESSAY PAGE ------------------------------------------------------------------------
 
-function EssayPage() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [essay, setEssay] = useState(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [loading, setLoading] = useState(true); // <- voeg deze toe
+useEffect(() => {
+  let cancelled = false;
 
+  const fetchEssayAndIncrementViews = async () => {
+    try {
+      const docRef = doc(db, "essays", id);
+      const snap = await getDoc(docRef);
 
-  useEffect(() => {
-  const fetchEssay = async () => {
-    const docRef = doc(db, "essays", id);
-    const snap = await getDoc(docRef);
-    if (snap.exists() && snap.data().status === "published") {
-      setEssay({ id: snap.id, ...snap.data() });
-    } else {
-      setEssay(null);
-    }
-    
-    setLoading(false); // <== dit verplaatsen naar buiten de if/else!
-  };
-  fetchEssay();
+      if (!cancelled) {
+        if (snap.exists() && snap.data().status === "published") {
+          setEssay({ id: snap.id, ...snap.data() });
 
-  const fetchAndCount = async () => {
-    const docRef = doc(db, "essays", id);
-    const snap = await getDoc(docRef);
+          try {
+            await updateDoc(docRef, { views: increment(1) });
+          } catch (err) {
+            console.error("Kon views niet verhogen:", err);
+          }
+        } else {
+          setEssay(null);
+        }
 
-    if (snap.exists() && snap.data().status === "published") {
-      // 1. Zet state
-      if (isMounted) {
-        setEssay({ id: snap.id, ...snap.data() });
+        setLoading(false);
       }
-      // 2. Increment views (laat Firestore veld auto-aanmaken)
-      try {
-        await updateDoc(docRef, { views: increment(1) });
-      } catch (err) {
-        console.error("Kon views niet verhogen:", err);
+    } catch (err) {
+      console.error("Fout bij ophalen essay:", err);
+      if (!cancelled) {
+        setEssay(null);
+        setLoading(false);
       }
-    } else {
-      if (isMounted) setEssay(null);
     }
-
-    if (isMounted) setLoading(false);
   };
 
-  fetchAndCount();
-  return () => { isMounted = false; };
+  fetchEssayAndIncrementViews();
+
+  return () => {
+    cancelled = true;
+  };
 }, [id]);
+
+
 
 
 if (loading) {
   return (
-    <div className="text-center py-12 text-gray-500 dark:text-gray-400">
-      Essay wordt geladen...
+    <div className="p-8 text-center text-gray-600 dark:text-gray-300">
+      Laden...
     </div>
   );
 }
@@ -367,19 +360,22 @@ if (!essay) {
   return (
     <div className="max-w-prose mx-auto space-y-6">
       <h2 className="text-2xl font-semibold">Artikel niet beschikbaar</h2>
-      <button onClick={() => navigate(-1)} className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900">
+      <button
+        onClick={() => navigate(-1)}
+        className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
+      >
         Terug
       </button>
     </div>
   );
 }
 
-  return (
-    <>
-      <article className="prose dark:prose-invert mx-auto relative">
-        <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
-          {(essay.views ?? 0)} 👁
-       </span>
+return (
+  <>
+    <article className="prose dark:prose-invert mx-auto relative">
+      <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
+        {(essay.views ?? 0)} 👁
+      </span>
 
       <h1>{essay.title}</h1>
       <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-4 flex-wrap">
@@ -388,34 +384,30 @@ if (!essay) {
         <Likes articleId={essay.id} />
       </div>
 
+      <div dangerouslySetInnerHTML={{ __html: essay.body }} />
+      <Comments articleId={essay.id} />
 
-  
-        <div dangerouslySetInnerHTML={{ __html: essay.body }} />
-        { /* Hier komen de comments */ }
-        <Comments articleId={essay.id} />
-  
-        <button onClick={() => navigate(-1)} className="mt-12 bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900">
-          Terug naar overzicht
-          </button>
-      </article>
+      <button
+        onClick={() => navigate(-1)}
+        className="mt-12 bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
+      >
+        Terug naar overzicht
+      </button>
+    </article>
 
-    
+    {!chatOpen && (
+      <button
+        onClick={() => setChatOpen(true)}
+        className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 p-4 rounded-full shadow-xl hover:scale-105 transition"
+      >
+        Chat met Clarus
+      </button>
+    )}
 
-      {!chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 p-4 rounded-full shadow-xl hover:scale-105 transition"
-        >
-          Chat met Clarus
-        </button>
-      )}
+    {chatOpen && <ChatPanel essay={essay} onClose={() => setChatOpen(false)} />}
+  </>
+);
 
-      {chatOpen && (
-        <ChatPanel essay={essay} onClose={() => setChatOpen(false)} />
-      )}
-    </>
-  );
-}
 
 
 // ----------------------------------- ADMIN / AUTH / HIDDEN ENTRY -----------------------------------
