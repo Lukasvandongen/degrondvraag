@@ -306,108 +306,113 @@ function EssaysoverviewPage() {
 
 //----------------------------------- ESSAY PAGE ------------------------------------------------------------------------
 
-useEffect(() => {
-  let cancelled = false;
+function EssayPage() {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [essay, setEssay] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const fetchEssayAndIncrementViews = async () => {
-    try {
-      const docRef = doc(db, "essays", id);
-      const snap = await getDoc(docRef);
+  useEffect(() => {
+    let cancelled = false;
 
-      if (!cancelled) {
-        if (snap.exists() && snap.data().status === "published") {
-          setEssay({ id: snap.id, ...snap.data() });
+    const fetchAndCount = async () => {
+      try {
+        const docRef = doc(db, "essays", id);
+        const snap = await getDoc(docRef);
 
-          try {
-            await updateDoc(docRef, { views: increment(1) });
-          } catch (err) {
-            console.error("Kon views niet verhogen:", err);
+        if (!cancelled) {
+          if (snap.exists() && snap.data().status === "published") {
+            setEssay({ id: snap.id, ...snap.data() });
+
+            try {
+              await updateDoc(docRef, { views: increment(1) });
+            } catch (err) {
+              console.error("Kon views niet verhogen:", err);
+            }
+          } else {
+            setEssay(null);
           }
-        } else {
-          setEssay(null);
+
+          setLoading(false);
         }
-
-        setLoading(false);
+      } catch (err) {
+        console.error("Fout bij ophalen essay:", err);
+        if (!cancelled) {
+          setEssay(null);
+          setLoading(false);
+        }
       }
-    } catch (err) {
-      console.error("Fout bij ophalen essay:", err);
-      if (!cancelled) {
-        setEssay(null);
-        setLoading(false);
-      }
-    }
-  };
+    };
 
-  fetchEssayAndIncrementViews();
+    fetchAndCount();
 
-  return () => {
-    cancelled = true;
-  };
-}, [id]);
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
-
-
-
-if (loading) {
-  return (
-    <div className="p-8 text-center text-gray-600 dark:text-gray-300">
-      Laden...
-    </div>
-  );
-}
-
-if (!essay) {
-  return (
-    <div className="max-w-prose mx-auto space-y-6">
-      <h2 className="text-2xl font-semibold">Artikel niet beschikbaar</h2>
-      <button
-        onClick={() => navigate(-1)}
-        className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-      >
-        Terug
-      </button>
-    </div>
-  );
-}
-
-return (
-  <>
-    <article className="prose dark:prose-invert mx-auto relative">
-      <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
-        {(essay.views ?? 0)} 👁
-      </span>
-
-      <h1>{essay.title}</h1>
-      <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-4 flex-wrap">
-        <span>{essay.date}</span>
-        <span>{(essay.views ?? 0)} keer bekeken</span>
-        <Likes articleId={essay.id} />
+  if (loading) {
+    return (
+      <div className="p-8 text-center text-gray-600 dark:text-gray-300">
+        Laden...
       </div>
+    );
+  }
 
-      <div dangerouslySetInnerHTML={{ __html: essay.body }} />
-      <Comments articleId={essay.id} />
+  if (!essay) {
+    return (
+      <div className="max-w-prose mx-auto space-y-6 p-8">
+        <h2 className="text-2xl font-semibold">Artikel niet beschikbaar</h2>
+        <button
+          onClick={() => navigate(-1)}
+          className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
+        >
+          Terug
+        </button>
+      </div>
+    );
+  }
 
-      <button
-        onClick={() => navigate(-1)}
-        className="mt-12 bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-      >
-        Terug naar overzicht
-      </button>
-    </article>
+  return (
+    <>
+      <article className="prose dark:prose-invert mx-auto relative">
+        <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
+          {(essay.views ?? 0)} 👁
+        </span>
 
-    {!chatOpen && (
-      <button
-        onClick={() => setChatOpen(true)}
-        className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 p-4 rounded-full shadow-xl hover:scale-105 transition"
-      >
-        Chat met Clarus
-      </button>
-    )}
+        <h1>{essay.title}</h1>
 
-    {chatOpen && <ChatPanel essay={essay} onClose={() => setChatOpen(false)} />}
-  </>
-);
+        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-4 flex-wrap">
+          <span>{essay.date}</span>
+          <span>{(essay.views ?? 0)} keer bekeken</span>
+          <Likes articleId={essay.id} />
+        </div>
 
+        <div dangerouslySetInnerHTML={{ __html: essay.body }} />
+        <Comments articleId={essay.id} />
+
+        <button
+          onClick={() => navigate(-1)}
+          className="mt-12 bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
+        >
+          Terug naar overzicht
+        </button>
+      </article>
+
+      {!chatOpen && (
+        <button
+          onClick={() => setChatOpen(true)}
+          className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 p-4 rounded-full shadow-xl hover:scale-105 transition"
+        >
+          Chat met Clarus
+        </button>
+      )}
+
+      {chatOpen && <ChatPanel essay={essay} onClose={() => setChatOpen(false)} />}
+    </>
+  );
+}
 
 
 // ----------------------------------- ADMIN / AUTH / HIDDEN ENTRY -----------------------------------
