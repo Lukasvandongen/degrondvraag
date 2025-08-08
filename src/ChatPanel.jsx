@@ -51,31 +51,59 @@ export default function ChatPanel({ essay, onClose }) {
   };
 
   const askClarus = async (vraag) => {
-    setLoading(true);
-    const newMessages = [...messages, { from: "user", text: vraag }];
-    setMessages(newMessages);
-    try {
-      const history = newMessages.filter((m) => m.from !== "system").map((m) => ({
+  setLoading(true);
+
+  // 1) Optimistisch: user-bericht alvast toevoegen
+  const newMessages = [...messages, { from: "user", text: vraag }];
+  setMessages(newMessages);
+
+  try {
+    // 2) History bouwen
+    const history = newMessages
+      .filter((m) => m.from !== "system")
+      .map((m) => ({
         role: m.from === "user" ? "user" : "assistant",
         content: m.text,
       }));
 
-      const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vraag, essay: essay.body, history }),
-      });
+    // 3) Call backend
+    const res = await fetch(`${import.meta.env.VITE_BACKEND_URL}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vraag, essay: essay.body, history }),
+    });
 
-      const data = await res.json();
-      setMessages((msgs) => [...msgs, { from: "clarus", text: data.antwoord }]);
+    // 4) Probeer JSON te lezen (ook bij non-200)
+    let data;
+    try {
+      data = await res.json();
     } catch {
-      setMessages((msgs) => [...msgs, {
-        from: "clarus",
-        text: "Er ging iets mis met Clarus. Probeer het later opnieuw.",
-      }]);
+      throw new Error("Server gaf geen geldige JSON terug.");
     }
+
+    // 5) Non-200? Gooi nette fout
+    if (!res.ok) {
+      throw new Error(data?.error || `Serverfout (${res.status})`);
+    }
+
+    // 6) Antwoord veilig extraheren
+    const text = typeof data?.antwoord === "string" ? data.antwoord : "";
+    if (!text) throw new Error("Leeg antwoord van Clarus.");
+
+    // 7) Toon antwoord
+    setMessages((msgs) => [...msgs, { from: "clarus", text }]);
+
+  } catch (err) {
+    // 8) Vriendelijke foutbubbel i.p.v. crash
+    setMessages((msgs) => [
+      ...msgs,
+      { from: "clarus", text: `⚠️ ${err.message}` },
+    ]);
+  } finally {
     setLoading(false);
-  };
+  }
+};
+
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -148,9 +176,10 @@ export default function ChatPanel({ essay, onClose }) {
                     : "bg-gray-200 dark:bg-gray-700 text-gray-900 dark:text-gray-50 rounded-xl rounded-br-none p-3 self-end ml-auto"
                 }`}
               >
-                {m.text.split("\n").map((line, idx) => (
-                <p key={idx} className="mb-2 last:mb-0">{line}</p>
-              ))}
+                {String(m.text ?? "").split("\n").map((line, idx) => (
+                  <p key={idx} className="mb-2 last:mb-0">{line}</p>
+                ))}
+
 
               </div>
             ))}
