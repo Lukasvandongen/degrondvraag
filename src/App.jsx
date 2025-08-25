@@ -8,7 +8,7 @@
 //   (optioneel) Firebase App Check keys toevoegen en activeren – zie TODO
 //
 // Tailwind: darkMode: 'class' in tailwind.config.js
-
+import { Analytics } from "@vercel/analytics/react"
 import { useEffect, useState, lazy, Suspense } from "react";
 import {
   BrowserRouter as Router,
@@ -851,7 +851,10 @@ export default function App() {
             <Route path="/over" element={<AboutPage />} />
             <Route path="/roadmap" element={<RoadmapPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
-            <Route path="/admin" element={admin ? <AdminPanel user={user} /> : <AdminLogin onLogin={() => setAdmin(true)} />} />
+            <Route
+              path="/admin"
+              element={admin ? <AdminPanel user={user} /> : <AdminLogin onLogin={() => setAdmin(true)} />}
+            />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>
@@ -864,6 +867,9 @@ export default function App() {
           <div className="mt-2">&copy; {new Date().getFullYear()} degrondvraag.com</div>
         </footer>
       </div>
+
+      {/* Vercel Analytics */}
+      <Analytics />
     </Router>
   );
 }
