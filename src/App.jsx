@@ -19,6 +19,7 @@ import {
   Languages,
   Lock,
   LogOut,
+  MessageSquare,
   Pencil,
   Plus,
   Save,
@@ -102,6 +103,7 @@ const copy = {
       start: "Start",
       essays: "Essays",
       about: "Over",
+      feedback: "Feedback",
       roadmap: "Roadmap",
       admin: "Admin",
     },
@@ -127,6 +129,8 @@ const copy = {
       publish: "Publiceer",
       draft: "Concept",
       remove: "Verwijder",
+      deleteComment: "Reactie verwijderen",
+      deleteFeedback: "Feedback verwijderen",
       cancel: "Sluiten",
       reply: "Reageer",
       send: "Verzenden",
@@ -181,7 +185,7 @@ const copy = {
       loadError: "Stemmen laden niet.",
       saveError: "Stem kon niet worden opgeslagen.",
     },
-    comments: {
+      comments: {
       title: "Reacties",
       count: (amount) => `${amount} reactie(s)`,
       name: "Naam",
@@ -191,6 +195,23 @@ const copy = {
       loadError: "Reacties konden niet worden geladen.",
       saveError: "Reactie kon niet worden opgeslagen.",
     },
+    feedback: {
+      eyebrow: "Feedback",
+      title: "Anonieme feedback",
+      intro: "Stuur een opmerking, foutmelding of suggestie zonder naam of e-mailadres. Je bericht wordt alleen in het adminpaneel gelezen.",
+      label: "Feedback",
+      placeholder: "Schrijf wat beter, onduidelijk of kapot is.",
+      submit: "Verstuur feedback",
+      sending: "Versturen...",
+      thanksTitle: "Dank je",
+      thanksBody: "Je feedback is opgeslagen.",
+      required: "Schrijf eerst je feedback.",
+      wait: "Wacht even voordat je opnieuw feedback verstuurt.",
+      saveError: "Feedback kon niet worden opgeslagen.",
+      inboxTitle: "Feedback inbox",
+      emptyInbox: "Nog geen feedback ontvangen.",
+      loadError: "Feedback kon niet worden geladen.",
+    },
     admin: {
       eyebrow: "Admin",
       title: "Redactietafel",
@@ -199,6 +220,11 @@ const copy = {
       draft: "Concept",
       englishReady: "Engels klaar",
       translationMissing: "Vertaling mist",
+      commentsTitle: "Reactiebeheer",
+      commentsEmpty: "Er zijn nog geen reacties.",
+      commentsLoadError: "Reacties konden niet worden geladen.",
+      commentsDeleteError: "Reactie verwijderen is mislukt.",
+      feedbackDeleteError: "Feedback verwijderen is mislukt.",
       search: "Zoek titel, slug, categorie",
       all: "Alles",
       loginTitle: "Admin login",
@@ -245,7 +271,7 @@ const copy = {
       about: [
         "Ik schrijf anoniem om het denken niet vast te zetten aan een enkele identiteit. De essays zijn experimenten: soms scherp, soms zoekend, altijd bedoeld als uitnodiging tot verder denken.",
         "Clarus staat in deze frontend voorlopig niet centraal. De prioriteit ligt nu bij een betere leeservaring, een praktischer adminpaneel en een stabielere basis voor de volgende backendstap.",
-        "Feedback kan naar feedback@degrondvraag.com.",
+        "Gebruik de feedbackpagina voor opmerkingen, suggesties of foutmeldingen. Er is geen werkend feedbackadres per e-mail.",
       ],
       roadmapEyebrow: "Roadmap",
       roadmapTitle: "Wat komt hierna",
@@ -267,7 +293,7 @@ const copy = {
       privacy: [
         "Reacties en stemmen kunnen via Firebase worden opgeslagen. E-mailadressen bij reacties worden gehasht en niet publiek getoond.",
         "Clarus is tijdelijk uit de hoofdflow gehaald. Wanneer de chat later terugkomt, wordt op deze pagina duidelijk vermeld welke gesprekken worden opgeslagen en waarvoor ze gebruikt worden.",
-        "Vragen of zorgen? Mail naar info@degrondvraag.com.",
+        "Vragen of zorgen kunnen via de feedbackpagina worden gestuurd.",
       ],
       notFoundTitle: "Pagina niet gevonden",
       notFoundBody: "Deze route bestaat niet of is verplaatst.",
@@ -278,6 +304,7 @@ const copy = {
       start: "Start",
       essays: "Essays",
       about: "About",
+      feedback: "Feedback",
       roadmap: "Roadmap",
       admin: "Admin",
     },
@@ -303,6 +330,8 @@ const copy = {
       publish: "Publish",
       draft: "Draft",
       remove: "Delete",
+      deleteComment: "Delete response",
+      deleteFeedback: "Delete feedback",
       cancel: "Close",
       reply: "Respond",
       send: "Send",
@@ -367,6 +396,23 @@ const copy = {
       loadError: "Responses could not be loaded.",
       saveError: "Response could not be saved.",
     },
+    feedback: {
+      eyebrow: "Feedback",
+      title: "Anonymous feedback",
+      intro: "Send a note, bug report or suggestion without a name or e-mail address. Your message is only read in the admin panel.",
+      label: "Feedback",
+      placeholder: "Write what should be clearer, better or fixed.",
+      submit: "Send feedback",
+      sending: "Sending...",
+      thanksTitle: "Thank you",
+      thanksBody: "Your feedback has been saved.",
+      required: "Write your feedback first.",
+      wait: "Wait a moment before sending feedback again.",
+      saveError: "Feedback could not be saved.",
+      inboxTitle: "Feedback inbox",
+      emptyInbox: "No feedback received yet.",
+      loadError: "Feedback could not be loaded.",
+    },
     admin: {
       eyebrow: "Admin",
       title: "Editorial desk",
@@ -375,6 +421,11 @@ const copy = {
       draft: "Draft",
       englishReady: "English ready",
       translationMissing: "Translation missing",
+      commentsTitle: "Response management",
+      commentsEmpty: "There are no responses yet.",
+      commentsLoadError: "Responses could not be loaded.",
+      commentsDeleteError: "Deleting the response failed.",
+      feedbackDeleteError: "Deleting feedback failed.",
       search: "Search title, slug, category",
       all: "All",
       loginTitle: "Admin login",
@@ -421,7 +472,7 @@ const copy = {
       about: [
         "I write anonymously so that thought is not fixed to a single identity. The essays are experiments: sometimes sharp, sometimes searching, always meant as an invitation to think further.",
         "Clarus is not central in this frontend for now. The priority is a stronger reading experience, a more practical admin panel and a more stable basis for the next backend step.",
-        "Feedback can be sent to feedback@degrondvraag.com.",
+        "Use the feedback page for notes, suggestions or bug reports. There is no working feedback e-mail address.",
       ],
       roadmapEyebrow: "Roadmap",
       roadmapTitle: "What comes next",
@@ -443,7 +494,7 @@ const copy = {
       privacy: [
         "Responses and votes can be stored through Firebase. E-mail addresses attached to responses are hashed and are not shown publicly.",
         "Clarus has temporarily been removed from the main flow. When the chat returns later, this page will state clearly which conversations are stored and how they are used.",
-        "Questions or concerns? E-mail info@degrondvraag.com.",
+        "Questions or concerns can be sent through the feedback page.",
       ],
       notFoundTitle: "Page not found",
       notFoundBody: "This route does not exist or has moved.",
@@ -674,6 +725,9 @@ function Header({ language, setLanguage, admin, onSignOut }) {
           </NavLink>
           <NavLink to="/over" className={navLinkClass}>
             {t.nav.about}
+          </NavLink>
+          <NavLink to="/feedback" className={navLinkClass}>
+            {t.nav.feedback}
           </NavLink>
           <NavLink to="/roadmap" className={navLinkClass}>
             {t.nav.roadmap}
@@ -1322,6 +1376,96 @@ function Comments({ articleId, language }) {
   );
 }
 
+function FeedbackPage({ language }) {
+  const t = copy[language].feedback;
+  const [text, setText] = useState("");
+  const [honeypot, setHoneypot] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    const value = text.trim();
+    if (!value) {
+      setError(t.required);
+      return;
+    }
+    if (honeypot || submitting) return;
+
+    const last = Number(localStorage.getItem("dgq:lastFeedback")) || 0;
+    if (Date.now() - last < 60_000) {
+      setError(t.wait);
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      setError("");
+      await addDoc(collection(db, "feedback"), {
+        text: value.slice(0, 5000),
+        language,
+        page: window.location.pathname,
+        createdAt: serverTimestamp(),
+        status: "new",
+      });
+      localStorage.setItem("dgq:lastFeedback", String(Date.now()));
+      setText("");
+      setDone(true);
+    } catch (err) {
+      console.error("Feedback save failed:", err);
+      setError(t.saveError);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+      <p className="text-sm font-medium text-sky-200">{t.eyebrow}</p>
+      <h1 className="mt-2 text-4xl font-semibold text-white">{t.title}</h1>
+      <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300">{t.intro}</p>
+
+      {done ? (
+        <div className="mt-8">
+          <EmptyState title={t.thanksTitle} body={t.thanksBody} />
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="mt-8 space-y-4 rounded-md border border-white/10 bg-[#071126]/72 p-5">
+          <label className="block space-y-2">
+            <span className="text-sm font-medium text-slate-300">{t.label}</span>
+            <textarea
+              className="field min-h-48 resize-y"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              placeholder={t.placeholder}
+              maxLength={5000}
+              required
+            />
+          </label>
+          <input
+            type="text"
+            className="hidden"
+            tabIndex={-1}
+            autoComplete="off"
+            value={honeypot}
+            onChange={(e) => setHoneypot(e.target.value)}
+          />
+          {error && <p className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">{error}</p>}
+          <button
+            className="inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:opacity-60"
+            disabled={submitting}
+            aria-busy={submitting}
+          >
+            <Send size={16} />
+            {submitting ? t.sending : t.submit}
+          </button>
+        </form>
+      )}
+    </section>
+  );
+}
+
 function AdminLogin({ language, onLogin }) {
   const t = copy[language].admin;
   const [email, setEmail] = useState("");
@@ -1383,6 +1527,156 @@ function AdminLogin({ language, onLogin }) {
           {loading ? t.loginBusy : t.login}
         </button>
       </form>
+    </section>
+  );
+}
+
+const formatStoredDate = (value, language) => {
+  if (!value) return "";
+  const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat(language === "en" ? "en-GB" : "nl-NL", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+};
+
+function AdminFeedbackInbox({ language }) {
+  const t = copy[language];
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const qRef = query(collection(db, "feedback"), orderBy("createdAt", "desc"));
+    return onSnapshot(
+      qRef,
+      (snap) => {
+        setItems(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+        setError("");
+      },
+      (err) => {
+        console.error("Feedback inbox sync failed:", err);
+        setLoading(false);
+        setError(t.feedback.loadError);
+      }
+    );
+  }, [t.feedback.loadError]);
+
+  const removeFeedback = async (id) => {
+    try {
+      setError("");
+      await deleteDoc(doc(db, "feedback", id));
+    } catch (err) {
+      console.error("Feedback delete failed:", err);
+      setError(t.admin.feedbackDeleteError);
+    }
+  };
+
+  return (
+    <section className="rounded-lg border border-white/10 bg-slate-950/52 p-4">
+      <div className="mb-4 flex items-center gap-3">
+        <MessageSquare className="text-sky-200" size={18} />
+        <div>
+          <h2 className="text-lg font-semibold text-white">{t.feedback.inboxTitle}</h2>
+          <p className="text-sm text-slate-500">{items.length} {t.nav.feedback.toLowerCase()}</p>
+        </div>
+      </div>
+      {error && <p className="mb-3 rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">{error}</p>}
+      {loading && <p className="text-sm text-slate-400">{t.firebase.loading}</p>}
+      {!loading && items.length === 0 && <p className="text-sm text-slate-400">{t.feedback.emptyInbox}</p>}
+      <div className="space-y-3">
+        {items.map((item) => (
+          <article key={item.id} className="rounded-md border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>{formatStoredDate(item.createdAt, language)}</span>
+              <span className="rounded border border-white/10 px-2 py-1 uppercase tracking-[0.14em]">{item.language || "nl"}</span>
+            </div>
+            <p className="whitespace-pre-wrap text-sm leading-6 text-slate-200">{item.text}</p>
+            <button
+              type="button"
+              onClick={() => removeFeedback(item.id)}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-red-100 hover:border-red-300/35"
+            >
+              <Trash2 size={13} />
+              {t.actions.deleteFeedback}
+            </button>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function AdminCommentsPanel({ language }) {
+  const t = copy[language];
+  const [comments, setComments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const qRef = query(collection(db, "comments"), orderBy("createdAt", "desc"));
+    return onSnapshot(
+      qRef,
+      (snap) => {
+        setComments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setLoading(false);
+        setError("");
+      },
+      (err) => {
+        console.error("Admin comments sync failed:", err);
+        setLoading(false);
+        setError(t.admin.commentsLoadError);
+      }
+    );
+  }, [t.admin.commentsLoadError]);
+
+  const removeComment = async (id) => {
+    try {
+      setError("");
+      await deleteDoc(doc(db, "comments", id));
+    } catch (err) {
+      console.error("Comment delete failed:", err);
+      setError(t.admin.commentsDeleteError);
+    }
+  };
+
+  return (
+    <section className="rounded-lg border border-white/10 bg-slate-950/52 p-4">
+      <div className="mb-4 flex items-center gap-3">
+        <MessageSquare className="text-sky-200" size={18} />
+        <div>
+          <h2 className="text-lg font-semibold text-white">{t.admin.commentsTitle}</h2>
+          <p className="text-sm text-slate-500">{comments.length} {t.comments.title.toLowerCase()}</p>
+        </div>
+      </div>
+      {error && <p className="mb-3 rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">{error}</p>}
+      {loading && <p className="text-sm text-slate-400">{t.firebase.loading}</p>}
+      {!loading && comments.length === 0 && <p className="text-sm text-slate-400">{t.admin.commentsEmpty}</p>}
+      <div className="space-y-3">
+        {comments.map((comment) => (
+          <article key={comment.id} className="rounded-md border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>{comment.articleId}</span>
+              <span>{formatStoredDate(comment.createdAt, language)}</span>
+            </div>
+            <p className="font-semibold text-white">{comment.name || "Anoniem"}</p>
+            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{comment.text}</p>
+            <button
+              type="button"
+              onClick={() => removeComment(comment.id)}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-red-100 hover:border-red-300/35"
+            >
+              <Trash2 size={13} />
+              {t.actions.deleteComment}
+            </button>
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -1868,6 +2162,11 @@ function AdminPanel({ language, onSignOut }) {
           </div>
         </form>
       </div>
+
+      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+        <AdminFeedbackInbox language={language} />
+        <AdminCommentsPanel language={language} />
+      </div>
     </section>
   );
 }
@@ -1896,19 +2195,16 @@ function AboutPage({ language }) {
       <h1 className="mt-2 text-4xl font-semibold text-white">{t.aboutTitle}</h1>
       <div className="prose prose-invert mt-8 max-w-none prose-a:text-sky-200">
         {t.about.map((paragraph) => (
-          <p key={paragraph}>
-            {paragraph.includes("@") ? (
-              <>
-                {paragraph.split("feedback@degrondvraag.com")[0]}
-                <a href="mailto:feedback@degrondvraag.com">feedback@degrondvraag.com</a>
-                {paragraph.split("feedback@degrondvraag.com")[1]}
-              </>
-            ) : (
-              paragraph
-            )}
-          </p>
+          <p key={paragraph}>{paragraph}</p>
         ))}
       </div>
+      <Link
+        to="/feedback"
+        className="mt-8 inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-200"
+      >
+        <MessageSquare size={16} />
+        {copy[language].nav.feedback}
+      </Link>
     </section>
   );
 }
@@ -1951,19 +2247,16 @@ function PrivacyPage({ language }) {
       <h1 className="mt-2 text-4xl font-semibold text-white">{t.privacyTitle}</h1>
       <div className="prose prose-invert mt-8 max-w-none prose-a:text-sky-200">
         {t.privacy.map((paragraph) => (
-          <p key={paragraph}>
-            {paragraph.includes("info@degrondvraag.com") ? (
-              <>
-                {paragraph.split("info@degrondvraag.com")[0]}
-                <a href="mailto:info@degrondvraag.com">info@degrondvraag.com</a>
-                {paragraph.split("info@degrondvraag.com")[1]}
-              </>
-            ) : (
-              paragraph
-            )}
-          </p>
+          <p key={paragraph}>{paragraph}</p>
         ))}
       </div>
+      <Link
+        to="/feedback"
+        className="mt-8 inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-200"
+      >
+        <MessageSquare size={16} />
+        {copy[language].nav.feedback}
+      </Link>
     </section>
   );
 }
@@ -2001,6 +2294,9 @@ function Footer({ language }) {
           </Link>
           <Link to="/over" className="hover:text-slate-200">
             {t.about}
+          </Link>
+          <Link to="/feedback" className="hover:text-slate-200">
+            {t.feedback}
           </Link>
         </div>
       </div>
@@ -2057,6 +2353,7 @@ export default function App() {
             <Route path="/essays" element={<EssaysOverviewPage language={language} />} />
             <Route path="/essays/:id" element={<EssayPage language={language} />} />
             <Route path="/over" element={<AboutPage language={language} />} />
+            <Route path="/feedback" element={<FeedbackPage language={language} />} />
             <Route path="/roadmap" element={<RoadmapPage language={language} />} />
             <Route path="/privacy" element={<PrivacyPage language={language} />} />
             <Route
