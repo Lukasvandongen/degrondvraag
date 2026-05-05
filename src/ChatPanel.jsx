@@ -11,11 +11,13 @@ export default function ChatPanel({ essay, onClose }) {
     try {
       const item = JSON.parse(localStorage.getItem(SESSION_KEY));
       if (item && item.essayId === essay.id) return item.history;
-    } catch {}
+    } catch (err) {
+      console.warn("Kon Clarus sessie niet herstellen:", err);
+    }
     return [
       {
         from: "clarus",
-        text: `Welkom terug. Waar in \"${essay.title}\" zit je gedachte vast?`,
+        text: `Welkom terug. Waar in "${essay.title}" zit je gedachte vast?`,
       },
     ];
   });
@@ -45,7 +47,7 @@ export default function ChatPanel({ essay, onClose }) {
     setMessages([
       {
         from: "clarus",
-        text: `Welkom terug. Ik ben aan het opstarten, dit kan een minuutje duren. Waar in \"${essay.title}\" zit je gedachte vast?`,
+        text: `Welkom terug. Ik ben aan het opstarten, dit kan een minuutje duren. Waar in "${essay.title}" zit je gedachte vast?`,
       },
     ]);
   };

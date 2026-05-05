@@ -1,56 +1,62 @@
-// degrondvraag.com – verbeterde single-file React implementatie
-// Inclusief: bugfixes, XSS-sanitization, admin-claim check, loading states,
-// view-throttle, hashed e-mail in comments, NotFound, a11y tweaks, kleine cleanups.
-//
-// EXTRA DEPENDENCIES:
-//   npm i dompurify
-//   (aanbevolen) npm i react-helmet-async  // voor SEO (niet direct gebruikt hieronder)
-//   (optioneel) Firebase App Check keys toevoegen en activeren – zie TODO
-//
-// Tailwind: darkMode: 'class' in tailwind.config.js
-import { Analytics } from "@vercel/analytics/react"
-import { useEffect, useState, lazy, Suspense } from "react";
+import { Analytics } from "@vercel/analytics/react";
+import { useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter as Router,
-  Routes,
-  Route,
   Link,
-  useParams,
+  NavLink,
+  Route,
+  Routes,
   useNavigate,
+  useParams,
 } from "react-router-dom";
-import { Sun, Moon, ThumbsUp, ThumbsDown, Lock, LogOut, Plus } from "lucide-react";
-// Lazy load ChatPanel (alleen wanneer gebruiker erop klikt)
-const ChatPanel = lazy(() => import("./ChatPanel"));
-import TipTapEditor from "./TipTapEditor";
+import {
+  ArrowLeft,
+  ArrowRight,
+  CalendarDays,
+  CheckCircle2,
+  FileText,
+  Filter,
+  Languages,
+  Lock,
+  LogOut,
+  Pencil,
+  Plus,
+  Save,
+  Search,
+  Send,
+  ShieldCheck,
+  Sparkles,
+  Tag,
+  ThumbsDown,
+  ThumbsUp,
+  Trash2,
+  X,
+} from "lucide-react";
 import DOMPurify from "dompurify";
+import TipTapEditor from "./TipTapEditor";
 
-// --- Firebase ---
 import { initializeApp } from "firebase/app";
 import {
-  getFirestore,
-  collection,
   addDoc,
-  query,
-  where,
-  onSnapshot,
-  orderBy,
+  collection,
+  deleteDoc,
   doc,
   getDoc,
-  setDoc,
-  deleteDoc,
-  updateDoc,
-  increment,
+  getFirestore,
+  onSnapshot,
+  orderBy,
+  query,
   serverTimestamp,
+  setDoc,
+  where,
 } from "firebase/firestore";
 import {
   getAuth,
-  signInWithEmailAndPassword,
-  signOut,
   onAuthStateChanged,
   signInAnonymously,
+  signInWithEmailAndPassword,
+  signOut,
 } from "firebase/auth";
-// (optioneel) App Check – laat staan als TODO
-// import { initializeAppCheck, ReCaptchaV3Provider } from "firebase/app-check";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -62,20 +68,463 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-// (optioneel) App Check activeren – vervang SITE_KEY en verwijder comments als je live gaat
-// initializeAppCheck(app, { provider: new ReCaptchaV3Provider(import.meta.env.VITE_RECAPTCHA_SITE_KEY), isTokenAutoRefreshEnabled: true });
-
 const db = getFirestore(app);
 
-// ---------------------------------------------------- HELPERS ----------------------------------------------------------------------
-const sanitizeHTML = (html) => DOMPurify.sanitize(html);
+const LANGUAGES = {
+  nl: "Nederlands",
+  en: "English",
+};
 
-const slugify = (str) =>
+const CATEGORIES = ["geloof", "filosofie", "ethiek", "AI", "maatschappij", "wetenschap"];
+
+const categoryLabels = {
+  nl: {
+    geloof: "geloof",
+    filosofie: "filosofie",
+    ethiek: "ethiek",
+    AI: "AI",
+    maatschappij: "maatschappij",
+    wetenschap: "wetenschap",
+  },
+  en: {
+    geloof: "faith",
+    filosofie: "philosophy",
+    ethiek: "ethics",
+    AI: "AI",
+    maatschappij: "society",
+    wetenschap: "science",
+  },
+};
+
+const copy = {
+  nl: {
+    nav: {
+      start: "Start",
+      essays: "Essays",
+      about: "Over",
+      roadmap: "Roadmap",
+      admin: "Admin",
+    },
+    language: {
+      label: "Taal wijzigen",
+      nl: "NL",
+      en: "EN",
+    },
+    status: {
+      draft: "Concept",
+      published: "Live",
+    },
+    actions: {
+      readEssays: "Lees essays",
+      aboutProject: "Over het project",
+      allEssays: "Alles bekijken",
+      readEssay: "Lees essay",
+      back: "Terug",
+      backToEssays: "Terug naar essays",
+      save: "Opslaan",
+      saving: "Opslaan...",
+      edit: "Bewerk",
+      publish: "Publiceer",
+      draft: "Concept",
+      remove: "Verwijder",
+      cancel: "Sluiten",
+      reply: "Reageer",
+      send: "Verzenden",
+      sending: "Verzenden...",
+      signOut: "Uitloggen",
+      newEssay: "Nieuw essay",
+      toStart: "Naar start",
+    },
+    home: {
+      badge: "Essays over geloof, moraal en bestaan",
+      title: "degrondvraag",
+      intro: "Een sober essayarchief voor vragen die traag, precies en zonder theatrale zekerheid onderzocht moeten worden.",
+      deskEyebrow: "REDACTIONELE NOTITIE",
+      deskTitle: "Wat hier verschijnt",
+      deskIntro: "Geen feed, geen haastige vorm, geen decor. De site verzamelt langere stukken die een vraag vasthouden totdat de vooronderstellingen zichtbaar worden.",
+      deskItems: [
+        ["Vorm", "Essay, notitie, reflectie"],
+        ["Toon", "Onderzoekend en academisch"],
+        ["Ritme", "Onregelmatig, alleen wanneer het stuk af is"],
+      ],
+      latestEyebrow: "Nieuw op de site",
+      latestTitle: "Laatste essays",
+      noPublishedTitle: "Nog geen gepubliceerde essays",
+      noPublishedBody: "Publiceer je eerste essay via het adminpaneel. De startpagina vult daarna automatisch met de nieuwste stukken.",
+    },
+    essays: {
+      eyebrow: "Archief",
+      title: "Essays",
+      intro: "Filter op onderwerp of zoek direct in titels en samenvattingen.",
+      search: "Zoek essays",
+      all: "Alles",
+      emptyTitle: "Geen essays gevonden",
+      emptyBody: "Pas je filters aan of publiceer een nieuw essay in het adminpaneel.",
+      untitled: "Een essay zonder titel.",
+      noExcerpt: "Een essay zonder samenvatting.",
+      unavailableTitle: "Essay niet beschikbaar",
+      unavailableBody: "Het essay bestaat niet of staat nog in concept.",
+      fetchError: "Dit essay kon niet worden geladen.",
+      notTranslatedTitle: "Engelse versie nog niet beschikbaar",
+      notTranslatedBody: "Dit essay heeft nog geen Engelse versie in Firebase. Voeg de Engelse titel, samenvatting en body toe in het adminpaneel.",
+    },
+    firebase: {
+      slow: "Firebase reageert traag of niet. De pagina blijft bruikbaar, maar live data ontbreekt.",
+      error: "Firebase is tijdelijk niet bereikbaar. Probeer het zo opnieuw.",
+      syncTitle: "Sync niet beschikbaar",
+      loadTitle: "Essays konden niet laden",
+      loading: "Essays laden...",
+    },
+    likes: {
+      like: "Plaats like",
+      dislike: "Plaats dislike",
+      loadError: "Stemmen laden niet.",
+      saveError: "Stem kon niet worden opgeslagen.",
+    },
+    comments: {
+      title: "Reacties",
+      count: (amount) => `${amount} reactie(s)`,
+      name: "Naam",
+      email: "E-mail optioneel",
+      body: "Jouw reactie",
+      wait: "Wacht even voordat je opnieuw reageert.",
+      loadError: "Reacties konden niet worden geladen.",
+      saveError: "Reactie kon niet worden opgeslagen.",
+    },
+    admin: {
+      eyebrow: "Admin",
+      title: "Redactietafel",
+      total: "Totaal",
+      live: "Live",
+      draft: "Concept",
+      englishReady: "Engels klaar",
+      translationMissing: "Vertaling mist",
+      search: "Zoek titel, slug, categorie",
+      all: "Alles",
+      loginTitle: "Admin login",
+      loginBody: "Gebruik je Firebase admin-account.",
+      email: "E-mail",
+      password: "Wachtwoord",
+      login: "Inloggen",
+      loginBusy: "Inloggen...",
+      loginError: "Onjuiste inloggegevens.",
+      existingEssay: "Bestaand manuscript",
+      newEssay: "Nieuw manuscript",
+      workingTitle: "Werk aan een manuscript",
+      dutchVersion: "Nederlands",
+      englishVersion: "English",
+      titleLabel: "Titel",
+      slugLabel: "Slug",
+      dateLabel: "Datum",
+      statusLabel: "Status",
+      excerptLabel: "Samenvatting",
+      bodyLabel: "Body",
+      categoriesLabel: "Categorieen",
+      preview: "Preview",
+      englishHelp: "Vul de Engelse versie met dezelfde academische toon. Gebruik geen em-dashes.",
+      dutchHelp: "De Nederlandse versie blijft de standaardversie van het essay.",
+      titlePlaceholder: "Titel van het essay",
+      slugPlaceholder: "automatisch-op-basis-van-titel",
+      excerptPlaceholder: "Korte intro voor de overzichtspagina",
+      noText: "Nog geen tekst.",
+      required: "Titel en slug zijn verplicht.",
+      saved: "Opgeslagen.",
+      saveError: "Opslaan is mislukt. Controleer Firebase en probeer opnieuw.",
+      published: "Essay gepubliceerd.",
+      drafted: "Essay teruggezet naar concept.",
+      statusError: "Status wijzigen is mislukt.",
+      removed: "Essay verwijderd.",
+      removeError: "Verwijderen is mislukt.",
+      removeConfirm: (title) => `Verwijder "${title}" definitief?`,
+      noEssays: "Geen essays gevonden.",
+      untitled: "Zonder titel",
+    },
+    pages: {
+      aboutEyebrow: "Over",
+      aboutTitle: "Over deze site",
+      about: [
+        "Ik schrijf anoniem om het denken niet vast te zetten aan een enkele identiteit. De essays zijn experimenten: soms scherp, soms zoekend, altijd bedoeld als uitnodiging tot verder denken.",
+        "Clarus staat in deze frontend voorlopig niet centraal. De prioriteit ligt nu bij een betere leeservaring, een praktischer adminpaneel en een stabielere basis voor de volgende backendstap.",
+        "Feedback kan naar feedback@degrondvraag.com.",
+      ],
+      roadmapEyebrow: "Roadmap",
+      roadmapTitle: "Wat komt hierna",
+      now: "Nu",
+      later: "Later",
+      nowItems: [
+        "Frontend donkerder, rustiger en praktischer maken",
+        "Admin sneller maken voor schrijven, filteren en publiceren",
+        "Firebase-fouten netter opvangen in de interface",
+        "Engelse versies toevoegen voor alle publieke tekst en essays",
+      ],
+      laterItems: [
+        "Clarus opnieuw aansluiten wanneer Qdrant en RAG weer beschikbaar zijn",
+        "Feedbackpagina toevoegen",
+        "Publicatieflow verder automatiseren",
+      ],
+      privacyEyebrow: "Privacy",
+      privacyTitle: "Privacy & transparantie",
+      privacy: [
+        "Reacties en stemmen kunnen via Firebase worden opgeslagen. E-mailadressen bij reacties worden gehasht en niet publiek getoond.",
+        "Clarus is tijdelijk uit de hoofdflow gehaald. Wanneer de chat later terugkomt, wordt op deze pagina duidelijk vermeld welke gesprekken worden opgeslagen en waarvoor ze gebruikt worden.",
+        "Vragen of zorgen? Mail naar info@degrondvraag.com.",
+      ],
+      notFoundTitle: "Pagina niet gevonden",
+      notFoundBody: "Deze route bestaat niet of is verplaatst.",
+    },
+  },
+  en: {
+    nav: {
+      start: "Start",
+      essays: "Essays",
+      about: "About",
+      roadmap: "Roadmap",
+      admin: "Admin",
+    },
+    language: {
+      label: "Change language",
+      nl: "NL",
+      en: "EN",
+    },
+    status: {
+      draft: "Draft",
+      published: "Live",
+    },
+    actions: {
+      readEssays: "Read essays",
+      aboutProject: "About the project",
+      allEssays: "View all",
+      readEssay: "Read essay",
+      back: "Back",
+      backToEssays: "Back to essays",
+      save: "Save",
+      saving: "Saving...",
+      edit: "Edit",
+      publish: "Publish",
+      draft: "Draft",
+      remove: "Delete",
+      cancel: "Close",
+      reply: "Respond",
+      send: "Send",
+      sending: "Sending...",
+      signOut: "Sign out",
+      newEssay: "New essay",
+      toStart: "Go to start",
+    },
+    home: {
+      badge: "Essays on faith, morality and existence",
+      title: "degrondvraag",
+      intro: "A restrained essay archive for questions that need to be examined slowly, precisely and without theatrical certainty.",
+      deskEyebrow: "EDITORIAL NOTE",
+      deskTitle: "What appears here",
+      deskIntro: "No feed, no hurried format, no spectacle. The site gathers longer pieces that hold a question until its assumptions become visible.",
+      deskItems: [
+        ["Form", "Essay, note, reflection"],
+        ["Register", "Inquiring and academic"],
+        ["Rhythm", "Irregular, only when the piece is ready"],
+      ],
+      latestEyebrow: "New on the site",
+      latestTitle: "Latest essays",
+      noPublishedTitle: "No published essays yet",
+      noPublishedBody: "Publish your first essay from the admin panel. The homepage will then fill itself with the newest pieces.",
+    },
+    essays: {
+      eyebrow: "Archive",
+      title: "Essays",
+      intro: "Filter by subject or search directly through titles and summaries.",
+      search: "Search essays",
+      all: "All",
+      emptyTitle: "No essays found",
+      emptyBody: "Adjust your filters or publish a new essay in the admin panel.",
+      untitled: "An untitled essay.",
+      noExcerpt: "An essay without a summary.",
+      unavailableTitle: "Essay unavailable",
+      unavailableBody: "The essay does not exist or is still a draft.",
+      fetchError: "This essay could not be loaded.",
+      notTranslatedTitle: "English version not available yet",
+      notTranslatedBody: "This essay does not yet have an English version in Firebase. Add the English title, summary and body in the admin panel.",
+    },
+    firebase: {
+      slow: "Firebase is slow or unavailable. The page remains usable, but live data is missing.",
+      error: "Firebase is temporarily unavailable. Please try again shortly.",
+      syncTitle: "Sync unavailable",
+      loadTitle: "Essays could not load",
+      loading: "Loading essays...",
+    },
+    likes: {
+      like: "Place like",
+      dislike: "Place dislike",
+      loadError: "Votes are not loading.",
+      saveError: "Vote could not be saved.",
+    },
+    comments: {
+      title: "Responses",
+      count: (amount) => `${amount} response(s)`,
+      name: "Name",
+      email: "E-mail optional",
+      body: "Your response",
+      wait: "Wait a moment before responding again.",
+      loadError: "Responses could not be loaded.",
+      saveError: "Response could not be saved.",
+    },
+    admin: {
+      eyebrow: "Admin",
+      title: "Editorial desk",
+      total: "Total",
+      live: "Live",
+      draft: "Draft",
+      englishReady: "English ready",
+      translationMissing: "Translation missing",
+      search: "Search title, slug, category",
+      all: "All",
+      loginTitle: "Admin login",
+      loginBody: "Use your Firebase admin account.",
+      email: "E-mail",
+      password: "Password",
+      login: "Sign in",
+      loginBusy: "Signing in...",
+      loginError: "Incorrect credentials.",
+      existingEssay: "Existing manuscript",
+      newEssay: "New manuscript",
+      workingTitle: "Work on a manuscript",
+      dutchVersion: "Nederlands",
+      englishVersion: "English",
+      titleLabel: "Title",
+      slugLabel: "Slug",
+      dateLabel: "Date",
+      statusLabel: "Status",
+      excerptLabel: "Summary",
+      bodyLabel: "Body",
+      categoriesLabel: "Categories",
+      preview: "Preview",
+      englishHelp: "Write the English version in the same academic register. Use no em-dashes.",
+      dutchHelp: "The Dutch version remains the default version of the essay.",
+      titlePlaceholder: "Essay title",
+      slugPlaceholder: "automatic-from-title",
+      excerptPlaceholder: "Short introduction for overview pages",
+      noText: "No text yet.",
+      required: "Title and slug are required.",
+      saved: "Saved.",
+      saveError: "Saving failed. Check Firebase and try again.",
+      published: "Essay published.",
+      drafted: "Essay returned to draft.",
+      statusError: "Status change failed.",
+      removed: "Essay deleted.",
+      removeError: "Delete failed.",
+      removeConfirm: (title) => `Delete "${title}" permanently?`,
+      noEssays: "No essays found.",
+      untitled: "Untitled",
+    },
+    pages: {
+      aboutEyebrow: "About",
+      aboutTitle: "About this site",
+      about: [
+        "I write anonymously so that thought is not fixed to a single identity. The essays are experiments: sometimes sharp, sometimes searching, always meant as an invitation to think further.",
+        "Clarus is not central in this frontend for now. The priority is a stronger reading experience, a more practical admin panel and a more stable basis for the next backend step.",
+        "Feedback can be sent to feedback@degrondvraag.com.",
+      ],
+      roadmapEyebrow: "Roadmap",
+      roadmapTitle: "What comes next",
+      now: "Now",
+      later: "Later",
+      nowItems: [
+        "Make the frontend darker, calmer and more practical",
+        "Make admin faster for writing, filtering and publishing",
+        "Handle Firebase failures more clearly in the interface",
+        "Add English versions for all public copy and essays",
+      ],
+      laterItems: [
+        "Reconnect Clarus when Qdrant and RAG are available again",
+        "Add a feedback page",
+        "Further automate the publication flow",
+      ],
+      privacyEyebrow: "Privacy",
+      privacyTitle: "Privacy & transparency",
+      privacy: [
+        "Responses and votes can be stored through Firebase. E-mail addresses attached to responses are hashed and are not shown publicly.",
+        "Clarus has temporarily been removed from the main flow. When the chat returns later, this page will state clearly which conversations are stored and how they are used.",
+        "Questions or concerns? E-mail info@degrondvraag.com.",
+      ],
+      notFoundTitle: "Page not found",
+      notFoundBody: "This route does not exist or has moved.",
+    },
+  },
+};
+
+const createEmptyEssay = () => ({
+  title: "",
+  id: "",
+  excerpt: "",
+  body: "",
+  date: new Date().toISOString().slice(0, 10),
+  status: "draft",
+  categories: [],
+  translations: {
+    en: {
+      title: "",
+      excerpt: "",
+      body: "",
+    },
+  },
+});
+
+const sanitizeHTML = (html = "") => DOMPurify.sanitize(html);
+
+const slugify = (str = "") =>
   str
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+const normalizeTranslations = (essay = {}) => ({
+  en: {
+    title: essay.translations?.en?.title || essay.titleEn || essay.title_en || "",
+    excerpt: essay.translations?.en?.excerpt || essay.excerptEn || essay.excerpt_en || "",
+    body: essay.translations?.en?.body || essay.bodyEn || essay.body_en || "",
+  },
+});
+
+const hasEnglishTranslation = (essay = {}) => {
+  const en = normalizeTranslations(essay).en;
+  return Boolean(en.title && en.excerpt && en.body);
+};
+
+const localizeEssay = (essay, language) => {
+  const translations = normalizeTranslations(essay);
+  if (language === "en") {
+    const en = translations.en;
+    const hasEnglish = Boolean(en.title || en.excerpt || en.body);
+    return {
+      ...essay,
+      displayTitle: en.title || copy.en.essays.notTranslatedTitle,
+      displayExcerpt: en.excerpt || copy.en.essays.notTranslatedBody,
+      displayBody: en.body || "",
+      hasRequestedLanguage: hasEnglish,
+    };
+  }
+
+  return {
+    ...essay,
+    displayTitle: essay.title || copy.nl.essays.untitled,
+    displayExcerpt: essay.excerpt || copy.nl.essays.noExcerpt,
+    displayBody: essay.body || "",
+    hasRequestedLanguage: true,
+  };
+};
+
+const formatDate = (value, language) => {
+  if (!value) return language === "en" ? "No date" : "Geen datum";
+  try {
+    return new Intl.DateTimeFormat(language === "en" ? "en-GB" : "nl-NL", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(new Date(`${value}T00:00:00`));
+  } catch {
+    return value;
+  }
+};
 
 async function sha256(text) {
   const enc = new TextEncoder().encode(text);
@@ -84,15 +533,664 @@ async function sha256(text) {
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-// ---------------------------------------------------- COMMENTS ---------------------------------------------------------------------
-function Comments({ articleId }) {
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
+function useLanguage() {
+  const [language, setLanguage] = useState(() => {
+    const urlLanguage = new URLSearchParams(window.location.search).get("lang");
+    if (urlLanguage === "en") return "en";
+    const stored = localStorage.getItem("language");
+    return stored === "en" ? "en" : "nl";
+  });
+
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.classList.add("dark");
+    localStorage.setItem("language", language);
+  }, [language]);
+
+  return [language, setLanguage];
+}
+
+function useEssays(language) {
+  const t = copy[language].firebase;
+  const [state, setState] = useState({
+    essays: [],
+    loading: true,
+    error: "",
+  });
+
+  useEffect(() => {
+    let settled = false;
+    const timeout = window.setTimeout(() => {
+      if (!settled) {
+        setState((current) => ({
+          ...current,
+          loading: false,
+          error: t.slow,
+        }));
+      }
+    }, 4500);
+
+    const qRef = query(collection(db, "essays"), orderBy("date", "desc"));
+    const unsubscribe = onSnapshot(
+      qRef,
+      (snap) => {
+        settled = true;
+        window.clearTimeout(timeout);
+        setState({
+          essays: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          loading: false,
+          error: "",
+        });
+      },
+      (err) => {
+        settled = true;
+        window.clearTimeout(timeout);
+        console.error("Essay sync failed:", err);
+        setState({
+          essays: [],
+          loading: false,
+          error: t.error,
+        });
+      }
+    );
+
+    return () => {
+      window.clearTimeout(timeout);
+      unsubscribe();
+    };
+  }, [t.error, t.slow]);
+
+  return state;
+}
+
+function BackgroundScene() {
+  return (
+    <div className="fixed inset-0 -z-10 overflow-hidden bg-[#020817]" aria-hidden="true">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_22%_12%,rgba(17,54,98,0.34),transparent_32%),radial-gradient(circle_at_75%_18%,rgba(14,66,112,0.16),transparent_30%),linear-gradient(135deg,#020817_0%,#06112a_48%,#010612_100%)]" />
+      <div className="ink-wash ink-wash-one" />
+      <div className="ink-wash ink-wash-two" />
+      <div className="paper-field" />
+      <div className="noise-layer" />
+    </div>
+  );
+}
+
+const navLinkClass = ({ isActive }) =>
+  cx(
+    "rounded-md px-3 py-2 text-sm font-medium transition",
+    isActive ? "bg-sky-400/12 text-sky-100" : "text-slate-300 hover:bg-white/8 hover:text-white"
+  );
+
+function LanguageControl({ language, setLanguage }) {
+  const t = copy[language].language;
+  return (
+    <div
+      className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/7 p-1"
+      aria-label={t.label}
+      title={t.label}
+    >
+      <span className="grid h-8 w-8 place-items-center text-slate-200">
+        <Languages size={18} />
+      </span>
+      {Object.keys(LANGUAGES).map((code) => (
+        <button
+          key={code}
+          onClick={() => setLanguage(code)}
+          className={cx(
+            "h-8 rounded px-2 text-xs font-semibold transition",
+            language === code ? "bg-sky-300 text-slate-950" : "text-slate-300 hover:bg-white/8 hover:text-white"
+          )}
+          aria-label={LANGUAGES[code]}
+        >
+          {t[code]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function Header({ language, setLanguage, admin, onSignOut }) {
+  const t = copy[language];
+  return (
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#020817]/78 backdrop-blur-xl">
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <Link to="/" className="flex items-center gap-3">
+          <span className="grid h-9 w-9 place-items-center rounded-md border border-sky-300/25 bg-sky-300/10 text-sm font-black text-sky-100 shadow-[0_0_32px_rgba(14,165,233,0.18)]">
+            dg
+          </span>
+          <span className="text-base font-semibold tracking-wide text-white">degrondvraag</span>
+        </Link>
+
+        <nav className="flex flex-wrap items-center gap-1">
+          <NavLink to="/" end className={navLinkClass}>
+            {t.nav.start}
+          </NavLink>
+          <NavLink to="/essays" className={navLinkClass}>
+            {t.nav.essays}
+          </NavLink>
+          <NavLink to="/over" className={navLinkClass}>
+            {t.nav.about}
+          </NavLink>
+          <NavLink to="/roadmap" className={navLinkClass}>
+            {t.nav.roadmap}
+          </NavLink>
+          {admin && (
+            <NavLink to="/admin" className={navLinkClass}>
+              {t.nav.admin}
+            </NavLink>
+          )}
+        </nav>
+
+        <div className="flex items-center gap-2">
+          <LanguageControl language={language} setLanguage={setLanguage} />
+          {admin && (
+            <button
+              onClick={onSignOut}
+              className="grid h-10 w-10 place-items-center rounded-md border border-white/10 bg-white/7 text-slate-300 transition hover:border-red-300/50 hover:text-red-100"
+              aria-label={t.actions.signOut}
+              title={t.actions.signOut}
+            >
+              <LogOut size={18} />
+            </button>
+          )}
+        </div>
+      </div>
+    </header>
+  );
+}
+
+function StatusBadge({ status, language }) {
+  const live = status === "published";
+  const t = copy[language].status;
+  return (
+    <span
+      className={cx(
+        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+        live
+          ? "border-emerald-300/20 bg-emerald-300/10 text-emerald-100"
+          : "border-amber-300/20 bg-amber-300/10 text-amber-100"
+      )}
+    >
+      {live ? <CheckCircle2 size={13} /> : <FileText size={13} />}
+      {t[status] || status}
+    </span>
+  );
+}
+
+function CategoryPills({ categories = [], language }) {
+  if (!categories.length) return null;
+  return (
+    <div className="flex flex-wrap gap-2">
+      {categories.map((category) => (
+        <span
+          key={category}
+          className="inline-flex items-center gap-1 rounded-full border border-sky-300/15 bg-sky-300/8 px-2.5 py-1 text-xs text-sky-100"
+        >
+          <Tag size={12} />
+          {categoryLabels[language][category] || category}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function EssayCard({ essay, language }) {
+  const t = copy[language];
+  const localized = localizeEssay(essay, language);
+  return (
+    <Link
+      to={`/essays/${essay.id}`}
+      className="group flex min-h-[250px] flex-col rounded-md border border-white/10 bg-[#071126]/72 p-5 shadow-[0_22px_70px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:border-sky-200/28 hover:bg-[#09162f]/86"
+    >
+      <div className="mb-5 flex items-center justify-between gap-3">
+        <span className="inline-flex items-center gap-2 text-xs text-slate-400">
+          <CalendarDays size={14} />
+          {formatDate(essay.date, language)}
+        </span>
+        <span className="rounded border border-white/10 px-2 py-1 text-[11px] uppercase tracking-[0.16em] text-slate-500">
+          Essay
+        </span>
+      </div>
+
+      <h3 className="text-xl font-semibold leading-snug text-white">{localized.displayTitle}</h3>
+      <p className="mt-3 line-clamp-4 text-sm leading-6 text-slate-300">{localized.displayExcerpt}</p>
+
+      <div className="mt-5">
+        <CategoryPills categories={essay.categories} language={language} />
+      </div>
+
+      <span className="mt-auto inline-flex items-center gap-2 pt-6 text-sm font-medium text-sky-100">
+        {t.actions.readEssay}
+        <ArrowRight size={16} className="transition group-hover:translate-x-1" />
+      </span>
+    </Link>
+  );
+}
+
+function EmptyState({ title, body, action }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-slate-950/45 p-8 text-center">
+      <Sparkles className="mx-auto mb-4 text-sky-200" size={26} />
+      <h3 className="text-lg font-semibold text-white">{title}</h3>
+      <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-400">{body}</p>
+      {action}
+    </div>
+  );
+}
+
+function HomePage({ language }) {
+  const t = copy[language];
+  const { essays, loading, error } = useEssays(language);
+  const latest = essays.filter((essay) => essay.status === "published").slice(0, 3);
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 pb-16 pt-10 sm:px-6 lg:pt-16">
+      <section className="grid min-h-[62vh] items-center gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="max-w-3xl">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-sky-300/20 bg-sky-300/8 px-3 py-1 text-xs font-medium text-sky-100">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-300" />
+            {t.home.badge}
+          </div>
+          <h1 className="text-5xl font-semibold leading-[1.02] text-white sm:text-6xl lg:text-7xl">
+            {t.home.title}
+          </h1>
+          <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-300">{t.home.intro}</p>
+          <div className="mt-8 flex flex-wrap gap-3">
+            <Link
+              to="/essays"
+              className="inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200"
+            >
+              {t.actions.readEssays}
+              <ArrowRight size={17} />
+            </Link>
+            <Link
+              to="/over"
+              className="inline-flex items-center gap-2 rounded-md border border-white/12 bg-white/7 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:border-sky-300/45 hover:bg-white/10"
+            >
+              {t.actions.aboutProject}
+            </Link>
+          </div>
+        </div>
+
+        <div className="editorial-note min-h-[360px] rounded-md border border-white/10 bg-[#071126]/76 p-6 shadow-[0_28px_100px_rgba(0,0,0,0.32)]">
+          <p className="text-xs uppercase tracking-[0.24em] text-sky-200/75">{t.home.deskEyebrow}</p>
+          <h2 className="mt-4 max-w-sm text-3xl font-semibold leading-tight text-white">{t.home.deskTitle}</h2>
+          <p className="mt-5 max-w-xl text-base leading-7 text-slate-300">{t.home.deskIntro}</p>
+          <dl className="mt-8 divide-y divide-white/10 border-y border-white/10">
+            {t.home.deskItems.map(([label, value]) => (
+              <div key={label} className="grid gap-3 py-4 sm:grid-cols-[120px_1fr]">
+                <dt className="text-sm text-slate-500">{label}</dt>
+                <dd className="text-sm leading-6 text-slate-200">{value}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </section>
+
+      <section className="mt-12">
+        <div className="mb-5 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-sky-200">{t.home.latestEyebrow}</p>
+            <h2 className="mt-1 text-2xl font-semibold text-white">{t.home.latestTitle}</h2>
+          </div>
+          <Link to="/essays" className="hidden items-center gap-2 text-sm font-medium text-sky-100 sm:inline-flex">
+            {t.actions.allEssays} <ArrowRight size={16} />
+          </Link>
+        </div>
+
+        {loading && <SkeletonGrid />}
+        {error && !loading && <EmptyState title={t.firebase.syncTitle} body={error} />}
+        {!loading && !error && latest.length === 0 && (
+          <EmptyState title={t.home.noPublishedTitle} body={t.home.noPublishedBody} />
+        )}
+        {!loading && !error && latest.length > 0 && (
+          <div className="grid gap-4 md:grid-cols-3">
+            {latest.map((essay) => (
+              <EssayCard key={essay.id} essay={essay} language={language} />
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function SkeletonGrid() {
+  return (
+    <div className="grid gap-4 md:grid-cols-3">
+      {[0, 1, 2].map((item) => (
+        <div key={item} className="min-h-[220px] animate-pulse rounded-lg border border-white/10 bg-white/5 p-5">
+          <div className="h-4 w-28 rounded bg-white/10" />
+          <div className="mt-8 h-6 w-3/4 rounded bg-white/10" />
+          <div className="mt-4 h-4 rounded bg-white/10" />
+          <div className="mt-2 h-4 w-5/6 rounded bg-white/10" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EssaysOverviewPage({ language }) {
+  const t = copy[language];
+  const { essays, loading, error } = useEssays(language);
+  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [search, setSearch] = useState("");
+
+  const publishedEssays = useMemo(
+    () =>
+      essays
+        .filter((essay) => essay.status === "published")
+        .filter((essay) => selectedCategory === "all" || (essay.categories || []).includes(selectedCategory))
+        .filter((essay) => {
+          const needle = search.trim().toLowerCase();
+          if (!needle) return true;
+          const localized = localizeEssay(essay, language);
+          return [localized.displayTitle, localized.displayExcerpt, essay.id, ...(essay.categories || [])]
+            .filter(Boolean)
+            .some((value) => String(value).toLowerCase().includes(needle));
+        }),
+    [essays, language, search, selectedCategory]
+  );
+
+  return (
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="text-sm font-medium text-sky-200">{t.essays.eyebrow}</p>
+          <h1 className="mt-2 text-4xl font-semibold text-white">{t.essays.title}</h1>
+          <p className="mt-3 max-w-2xl text-slate-400">{t.essays.intro}</p>
+        </div>
+        <label className="relative block w-full max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-md border border-white/10 bg-slate-950/65 py-3 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-400/15"
+            placeholder={t.essays.search}
+          />
+        </label>
+      </div>
+
+      <div className="mb-8 flex flex-wrap gap-2">
+        <button
+          onClick={() => setSelectedCategory("all")}
+          className={cx(
+            "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
+            selectedCategory === "all"
+              ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+              : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+          )}
+        >
+          <Filter size={15} />
+          {t.essays.all}
+        </button>
+        {CATEGORIES.map((category) => (
+          <button
+            key={category}
+            onClick={() => setSelectedCategory(category)}
+            className={cx(
+              "rounded-md border px-3 py-2 text-sm transition",
+              selectedCategory === category
+                ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+                : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+            )}
+          >
+            {categoryLabels[language][category] || category}
+          </button>
+        ))}
+      </div>
+
+      {loading && <SkeletonGrid />}
+      {error && !loading && <EmptyState title={t.firebase.loadTitle} body={error} />}
+      {!loading && !error && publishedEssays.length === 0 && (
+        <EmptyState title={t.essays.emptyTitle} body={t.essays.emptyBody} />
+      )}
+      {!loading && !error && publishedEssays.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {publishedEssays.map((essay) => (
+            <EssayCard key={essay.id} essay={essay} language={language} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function EssayPage({ language }) {
+  const t = copy[language];
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const [essay, setEssay] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchEssay = async () => {
+      try {
+        setLoading(true);
+        const snap = await getDoc(doc(db, "essays", id));
+        if (cancelled) return;
+        if (snap.exists() && snap.data().status === "published") {
+          setEssay({ id: snap.id, ...snap.data() });
+          setError("");
+        } else {
+          setEssay(null);
+          setError(t.essays.unavailableBody);
+        }
+      } catch (err) {
+        console.error("Essay fetch failed:", err);
+        if (!cancelled) {
+          setEssay(null);
+          setError(t.essays.fetchError);
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    fetchEssay();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, t.essays.fetchError, t.essays.unavailableBody]);
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-16">
+        <div className="h-5 w-32 animate-pulse rounded bg-white/10" />
+        <div className="mt-8 h-12 w-3/4 animate-pulse rounded bg-white/10" />
+        <div className="mt-8 space-y-3">
+          <div className="h-4 animate-pulse rounded bg-white/10" />
+          <div className="h-4 w-5/6 animate-pulse rounded bg-white/10" />
+          <div className="h-4 w-2/3 animate-pulse rounded bg-white/10" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!essay) {
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-16">
+        <EmptyState
+          title={t.essays.unavailableTitle}
+          body={error || t.essays.unavailableBody}
+          action={
+            <button
+              onClick={() => navigate("/essays")}
+              className="mt-5 inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950"
+            >
+              <ArrowLeft size={16} />
+              {t.actions.backToEssays}
+            </button>
+          }
+        />
+      </section>
+    );
+  }
+
+  const localized = localizeEssay(essay, language);
+
+  if (!localized.hasRequestedLanguage) {
+    return (
+      <section className="mx-auto max-w-3xl px-4 py-16">
+        <EmptyState
+          title={t.essays.notTranslatedTitle}
+          body={t.essays.notTranslatedBody}
+          action={
+            <button
+              onClick={() => navigate("/essays")}
+              className="mt-5 inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950"
+            >
+              <ArrowLeft size={16} />
+              {t.actions.backToEssays}
+            </button>
+          }
+        />
+      </section>
+    );
+  }
+
+  return (
+    <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <button
+        onClick={() => navigate(-1)}
+        className="mb-8 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/6 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-300/35 hover:text-white"
+      >
+        <ArrowLeft size={16} />
+        {t.actions.back}
+      </button>
+
+      <header className="border-b border-white/10 pb-8">
+        <div className="mb-5 flex flex-wrap items-center gap-3">
+          <span className="inline-flex items-center gap-2 text-sm text-slate-400">
+            <CalendarDays size={16} />
+            {formatDate(essay.date, language)}
+          </span>
+          <CategoryPills categories={essay.categories} language={language} />
+        </div>
+        <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">{localized.displayTitle}</h1>
+        {localized.displayExcerpt && <p className="mt-5 text-lg leading-8 text-slate-300">{localized.displayExcerpt}</p>}
+        <div className="mt-6">
+          <Likes articleId={essay.id} language={language} />
+        </div>
+      </header>
+
+      <div
+        className="prose prose-invert prose-slate mt-10 max-w-none prose-headings:text-white prose-a:text-sky-200 prose-strong:text-white"
+        dangerouslySetInnerHTML={{ __html: sanitizeHTML(localized.displayBody) }}
+      />
+
+      <Comments articleId={essay.id} language={language} />
+    </article>
+  );
+}
+
+function Likes({ articleId, language }) {
+  const t = copy[language].likes;
+  const [user, setUser] = useState(null);
+  const [vote, setVote] = useState(null);
+  const [stats, setStats] = useState({ likes: 0, dislikes: 0 });
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => onAuthStateChanged(getAuth(app), setUser), []);
+
+  useEffect(() => {
+    const col = collection(db, "likes", articleId, "votes");
+    return onSnapshot(
+      col,
+      (snap) => {
+        let likes = 0;
+        let dislikes = 0;
+        let userVote = null;
+        snap.docs.forEach((d) => {
+          if (d.data().type === "like") likes += 1;
+          if (d.data().type === "dislike") dislikes += 1;
+          if (user && d.id === user.uid) userVote = d.data().type;
+        });
+        setStats({ likes, dislikes });
+        setVote(userVote);
+        setError("");
+      },
+      (err) => {
+        console.error("Like sync failed:", err);
+        setError(t.loadError);
+      }
+    );
+  }, [articleId, t.loadError, user]);
+
+  const castVote = async (type) => {
+    if (!user || pending) return;
+    const ref = doc(db, "likes", articleId, "votes", user.uid);
+    try {
+      setPending(true);
+      setError("");
+      if (vote === type) {
+        await deleteDoc(ref);
+      } else {
+        await setDoc(ref, { type }, { merge: true });
+      }
+    } catch (err) {
+      console.error("Vote failed:", err);
+      setError(t.saveError);
+    } finally {
+      setPending(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap items-center gap-3">
+      <button
+        onClick={() => castVote("like")}
+        className={cx(
+          "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50",
+          vote === "like"
+            ? "border-emerald-300/35 bg-emerald-300/12 text-emerald-100"
+            : "border-white/10 bg-white/5 text-slate-300 hover:border-emerald-300/30"
+        )}
+        disabled={!user || pending}
+        aria-label={t.like}
+        aria-pressed={vote === "like"}
+      >
+        <ThumbsUp size={16} />
+        {stats.likes}
+      </button>
+      <button
+        onClick={() => castVote("dislike")}
+        className={cx(
+          "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50",
+          vote === "dislike"
+            ? "border-red-300/35 bg-red-300/12 text-red-100"
+            : "border-white/10 bg-white/5 text-slate-300 hover:border-red-300/30"
+        )}
+        disabled={!user || pending}
+        aria-label={t.dislike}
+        aria-pressed={vote === "dislike"}
+      >
+        <ThumbsDown size={16} />
+        {stats.dislikes}
+      </button>
+      {error && <span className="text-xs text-amber-200">{error}</span>}
+    </div>
+  );
+}
+
+function Comments({ articleId, language }) {
+  const t = copy[language].comments;
   const [comments, setComments] = useState([]);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [text, setText] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [honeypot, setHoneypot] = useState(""); // bot-trap
+  const [honeypot, setHoneypot] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const qRef = query(
@@ -100,55 +1198,74 @@ function Comments({ articleId }) {
       where("articleId", "==", articleId),
       orderBy("createdAt", "desc")
     );
-    return onSnapshot(qRef, (snap) => {
-      setComments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
-    });
-  }, [articleId]);
+    return onSnapshot(
+      qRef,
+      (snap) => {
+        setComments(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        setError("");
+      },
+      (err) => {
+        console.error("Comment sync failed:", err);
+        setError(t.loadError);
+      }
+    );
+  }, [articleId, t.loadError]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (submitting) return;
-    if (!name || !text) return;
-    if (honeypot) return; // bots skippen
+    if (submitting || !name.trim() || !text.trim() || honeypot) return;
 
-    // rudimentaire client rate-limit (defense in depth; echte bescherming via Rules/App Check)
     const last = Number(localStorage.getItem("dgq:lastComment")) || 0;
-    if (Date.now() - last < 60_000) return; // max 1/minuut per browser
+    if (Date.now() - last < 60_000) {
+      setError(t.wait);
+      return;
+    }
 
     try {
       setSubmitting(true);
+      setError("");
       const emailHash = email ? await sha256(email.trim().toLowerCase()) : null;
       await addDoc(collection(db, "comments"), {
         articleId,
         name: name.trim().slice(0, 120),
         text: text.trim().slice(0, 5000),
-        emailHash, // geen raw e-mail
+        emailHash,
         createdAt: serverTimestamp(),
       });
       setText("");
       setShowForm(false);
       localStorage.setItem("dgq:lastComment", String(Date.now()));
+    } catch (err) {
+      console.error("Comment save failed:", err);
+      setError(t.saveError);
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <section className="mt-12 space-y-6">
-      <button
-        onClick={() => setShowForm((v) => !v)}
-        className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-      >
-        {showForm ? "Verberg reactieveld" : "Reageer"}
-      </button>
+    <section className="mt-14 border-t border-white/10 pt-8">
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 className="text-xl font-semibold text-white">{t.title}</h2>
+          <p className="mt-1 text-sm text-slate-400">{t.count(comments.length)}</p>
+        </div>
+        <button
+          onClick={() => setShowForm((value) => !value)}
+          className="inline-flex items-center gap-2 rounded-md border border-sky-300/25 bg-sky-300/10 px-4 py-2.5 text-sm font-semibold text-sky-100 transition hover:border-sky-300/50"
+        >
+          {showForm ? <X size={16} /> : <Send size={16} />}
+          {showForm ? copy[language].actions.cancel : copy[language].actions.reply}
+        </button>
+      </div>
 
       {showForm && (
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid sm:grid-cols-2 gap-4">
+        <form onSubmit={handleSubmit} className="mt-6 space-y-4 rounded-lg border border-white/10 bg-slate-950/45 p-5">
+          <div className="grid gap-4 sm:grid-cols-2">
             <input
               type="text"
-              placeholder="Naam"
-              className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white"
+              placeholder={t.name}
+              className="field"
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
@@ -156,12 +1273,11 @@ function Comments({ articleId }) {
             />
             <input
               type="email"
-              placeholder="E‑mail (wordt gehasht, niet gepubliceerd)"
-              className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white"
+              placeholder={t.email}
+              className="field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-            {/* honeypot */}
             <input
               type="text"
               className="hidden"
@@ -172,32 +1288,32 @@ function Comments({ articleId }) {
             />
           </div>
           <textarea
-            placeholder="Jouw reactie …"
-            className="border p-2 rounded w-full bg-white dark:bg-gray-800 dark:text-white"
-            rows={4}
+            placeholder={t.body}
+            className="field min-h-32 resize-y"
             value={text}
             onChange={(e) => setText(e.target.value)}
             required
             maxLength={5000}
           />
           <button
-            className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:opacity-60"
             disabled={submitting}
             aria-busy={submitting}
           >
-            Verzenden
+            <Send size={16} />
+            {submitting ? copy[language].actions.sending : copy[language].actions.send}
           </button>
-          <p className="text-xs text-gray-500 mt-2">E‑mail wordt gehasht (SHA‑256) en nooit publiek getoond.</p>
         </form>
       )}
 
+      {error && <p className="mt-4 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">{error}</p>}
+
       {comments.length > 0 && (
-        <div className="space-y-4">
-          <h4 className="text-lg font-medium">{comments.length} reacties</h4>
-          {comments.map((c) => (
-            <div key={c.id} className="border rounded p-4 dark:border-gray-700">
-              <p className="font-semibold mb-1">{c.name}</p>
-              <p className="text-sm whitespace-pre-wrap">{c.text}</p>
+        <div className="mt-6 space-y-3">
+          {comments.map((comment) => (
+            <div key={comment.id} className="rounded-lg border border-white/10 bg-white/5 p-4">
+              <p className="font-semibold text-white">{comment.name}</p>
+              <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300">{comment.text}</p>
             </div>
           ))}
         </div>
@@ -206,368 +1322,119 @@ function Comments({ articleId }) {
   );
 }
 
-// ---------------------------------------------------- LIKES ------------------------------------------------------------------------
-function Likes({ articleId }) {
-  const [user, setUser] = useState(null);
-  const [vote, setVote] = useState(null); // "like", "dislike" of null
-  const [stats, setStats] = useState({ likes: 0, dislikes: 0 });
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(getAuth(app), (firebaseUser) => {
-      setUser(firebaseUser);
-    });
-    return unsub;
-  }, []);
-
-  useEffect(() => {
-    const col = collection(db, "likes", articleId, "votes");
-    return onSnapshot(col, (snap) => {
-      let likes = 0,
-        dislikes = 0,
-        userVote = null;
-      snap.docs.forEach((d) => {
-        if (d.data().type === "like") likes++;
-        if (d.data().type === "dislike") dislikes++;
-        if (user && d.id === user.uid) userVote = d.data().type;
-      });
-      setStats({ likes, dislikes });
-      setVote(userVote);
-    });
-  }, [articleId, user]);
-
-  const castVote = async (type) => {
-    if (!user) return;
-    const ref = doc(db, "likes", articleId, "votes", user.uid);
-    if (vote === type) {
-      await deleteDoc(ref);
-      return;
-    }
-    await setDoc(ref, { type }, { merge: true });
-  };
-
-  return (
-    <div className="flex items-center gap-4 text-sm">
-      <button
-        onClick={() => castVote("like")}
-        className={`flex items-center gap-1 hover:text-green-600 transition-transform ${vote === "like" ? "scale-110 font-bold" : ""}`}
-        disabled={!user}
-        aria-label="Plaats like"
-        aria-pressed={vote === "like"}
-      >
-        <ThumbsUp size={16} /> {stats.likes}
-      </button>
-      <button
-        onClick={() => castVote("dislike")}
-        className={`flex items-center gap-1 hover:text-red-600 transition-transform ${vote === "dislike" ? "scale-110 font-bold" : ""}`}
-        disabled={!user}
-        aria-label="Plaats dislike"
-        aria-pressed={vote === "dislike"}
-      >
-        <ThumbsDown size={16} /> {stats.dislikes}
-      </button>
-    </div>
-  );
-}
-
-// ---------------------------------------------------- PAGES ------------------------------------------------------------------------
-function HomePage() {
-  return (
-    <section className="space-y-6 max-w-prose mx-auto">
-      <h2 className="text-4xl font-semibold">Welkom bij degrondvraag</h2>
-      <p>Persoonlijke essays over moraal, religie en bestaan.</p>
-      <Link
-        to="/essays"
-        className="inline-block bg-gray-900 text-white px-4 py-2 rounded transition hover:bg-gray-700 dark:bg-gray-100 dark:text-gray-900 dark:hover:bg-gray-300"
-      >
-        Lees essays
-      </Link>
-    </section>
-  );
-}
-
-// ---------------------------------------------------- ESSAYS OVERVIEW --------------------------------------------------------------
-function EssaysOverviewPage() {
-  const [essays, setEssays] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const CATEGORIEEN = ["geloof", "filosofie", "ethiek", "AI", "maatschappij", "wetenschap"];
-  const [selectedCategory, setSelectedCategory] = useState(null);
-
-  useEffect(() => {
-    const qRef = query(collection(db, "essays"), orderBy("date", "desc")); // date blijft string hier; overweeg createdAt Timestamp
-    return onSnapshot(qRef, (snap) => {
-      const docs = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setEssays(docs);
-      setLoading(false);
-    });
-  }, []);
-
-  if (loading) {
-    return <p className="text-center mt-12 text-gray-500 dark:text-gray-400">Laden...</p>;
-  }
-  if (!essays || essays.length === 0) {
-    return <p className="text-center mt-12 text-gray-500 dark:text-gray-400">Er zijn nog geen essays.</p>;
-  }
-
-  return (
-    <section className="space-y-8 max-w-4xl mx-auto">
-      <h2 className="text-3xl font-semibold">Essays</h2>
-
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={() => setSelectedCategory(null)}
-          className={`px-3 py-1 rounded-full text-sm border ${
-            selectedCategory === null
-              ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-black"
-              : "bg-white text-black dark:bg-zinc-900 dark:text-white"
-          }`}
-        >
-          Alle categorieën
-        </button>
-        {CATEGORIEEN.map((cat) => (
-          <button
-            key={cat}
-            onClick={() => setSelectedCategory(cat)}
-            className={`px-3 py-1 rounded-full text-sm border ${
-              selectedCategory === cat
-                ? "bg-gray-900 text-white dark:bg-gray-100 dark:text-black"
-                : "bg-white text-black dark:bg-zinc-900 dark:text-white"
-            }`}
-          >
-            {cat}
-          </button>
-        ))}
-      </div>
-
-      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {essays
-          .filter((e) => !selectedCategory || (e.categories ?? []).includes(selectedCategory))
-          .map((e) => {
-            const Wrapper = e.status === "published" ? Link : "div";
-            return (
-              <Wrapper
-                key={e.id}
-                to={e.status === "published" ? `/essays/${e.id}` : undefined}
-                className={`relative border rounded-xl p-6 flex flex-col justify-between dark:border-gray-700 ${
-                  e.status === "draft" ? "opacity-60 cursor-not-allowed" : "hover:shadow-lg"
-                }`}
-              >
-                <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
-                  {(e.views ?? 0)} 👁
-                </span>
-
-                <div>
-                  <h3 className="text-xl font-bold mb-1">{e.title}</h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">{e.date}</p>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">{(e.views ?? 0)} keer bekeken</p>
-                  <p className="text-sm">{e.excerpt}</p>
-                </div>
-                {e.status === "draft" && (
-                  <span className="text-xs italic text-gray-400 mt-2">Dit artikel komt binnenkort beschikbaar</span>
-                )}
-              </Wrapper>
-            );
-          })}
-      </ul>
-    </section>
-  );
-}
-
-//----------------------------------- ESSAY PAGE -------------------------------------------------------------------------------------
-function EssayPage() {
-  const { id } = useParams();
-  const navigate = useNavigate();
-  const [essay, setEssay] = useState(null);
-  const [chatOpen, setChatOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const fetchAndCount = async () => {
-      try {
-        const docRef = doc(db, "essays", id);
-        const snap = await getDoc(docRef);
-
-        if (!cancelled) {
-          if (snap.exists() && snap.data().status === "published") {
-            const data = { id: snap.id, ...snap.data() };
-            setEssay(data);
-
-            // Views throttle: max 1 increment per 12 uur per essay per browser
-            const viewKey = `dgq:viewed:${id}`;
-            const last = Number(localStorage.getItem(viewKey) || 0);
-            if (Date.now() - last > 12 * 60 * 60 * 1000) {
-              try {
-                await updateDoc(docRef, { views: increment(1) });
-                localStorage.setItem(viewKey, String(Date.now()));
-              } catch (err) {
-                console.error("Kon views niet verhogen:", err);
-              }
-            }
-          } else {
-            setEssay(null);
-          }
-
-          setLoading(false);
-        }
-      } catch (err) {
-        console.error("Fout bij ophalen essay:", err);
-        if (!cancelled) {
-          setEssay(null);
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchAndCount();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [id]);
-
-  if (loading) {
-    return <div className="p-8 text-center text-gray-600 dark:text-gray-300">Laden...</div>;
-  }
-
-  if (!essay) {
-    return (
-      <div className="max-w-prose mx-auto space-y-6 p-8">
-        <h2 className="text-2xl font-semibold">Artikel niet beschikbaar</h2>
-        <button
-          onClick={() => navigate(-1)}
-          className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-        >
-          Terug
-        </button>
-      </div>
-    );
-  }
-
-  return (
-    <>
-      <article className="prose dark:prose-invert mx-auto relative">
-        <span className="absolute top-2 right-2 bg-black/60 dark:bg-white/20 text-xs text-white px-2 py-0.5 rounded-full backdrop-blur">
-          {(essay.views ?? 0)} 👁
-        </span>
-
-        <h1>{essay.title}</h1>
-
-        <div className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-4 flex-wrap">
-          <span>{essay.date}</span>
-          <span>{(essay.views ?? 0)} keer bekeken</span>
-          <Likes articleId={essay.id} />
-        </div>
-
-        <div dangerouslySetInnerHTML={{ __html: sanitizeHTML(essay.body) }} />
-        <Comments articleId={essay.id} />
-
-        <button
-          onClick={() => navigate(-1)}
-          className="mt-12 bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-        >
-          Terug naar overzicht
-        </button>
-      </article>
-
-      {!chatOpen && (
-        <button
-          onClick={() => setChatOpen(true)}
-          className="fixed bottom-6 right-6 z-50 bg-gray-900 text-white dark:bg-gray-100 dark:text-gray-900 p-4 rounded-full shadow-xl hover:scale-105 transition"
-          aria-label="Chat met Clarus openen"
-        >
-          Chat met Clarus
-        </button>
-      )}
-
-      {chatOpen && (
-        <Suspense fallback={<div className="fixed bottom-6 right-6 p-4 bg-black/70 text-white rounded">Chat laden…</div>}>
-          <ChatPanel essay={essay} onClose={() => setChatOpen(false)} />
-        </Suspense>
-      )}
-    </>
-  );
-}
-
-// ----------------------------------- ADMIN / AUTH / HIDDEN ENTRY -----------------------------------
-function AdminEntry({ hovered }) {
-  const navigate = useNavigate();
-  useEffect(() => {
-    if (hovered >= 4) {
-      const t = setTimeout(() => {
-        navigate("/admin");
-      }, 250);
-      return () => clearTimeout(t);
-    }
-  }, [hovered, navigate]);
-  return null;
-}
-
-function AdminLogin({ onLogin }) {
+function AdminLogin({ language, onLogin }) {
+  const t = copy[language].admin;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setErr("");
     try {
-      const auth = getAuth(app);
-      await signInWithEmailAndPassword(auth, email, password);
+      setLoading(true);
+      await signInWithEmailAndPassword(getAuth(app), email, password);
       onLogin();
-    } catch (e) {
-      setErr("Onjuiste inloggegevens");
+    } catch (error) {
+      console.error("Admin login failed:", error);
+      setErr(t.loginError);
+    } finally {
+      setLoading(false);
     }
   };
+
   return (
-    <form className="max-w-xs mx-auto mt-24 p-6 border rounded dark:border-gray-700" onSubmit={handleSubmit}>
-      <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-        <Lock size={18} /> Admin login
-      </h2>
-      <input
-        className="border p-2 rounded w-full mb-2 dark:bg-gray-900"
-        type="email"
-        placeholder="E-mail"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <input
-        className="border p-2 rounded w-full mb-2 dark:bg-gray-900"
-        type="password"
-        placeholder="Wachtwoord"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      {err && <p className="text-red-500 text-sm mb-2">{err}</p>}
-      <button className="w-full bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900">Inloggen</button>
-    </form>
+    <section className="mx-auto flex min-h-[70vh] max-w-md items-center px-4 py-12">
+      <form onSubmit={handleSubmit} className="w-full rounded-lg border border-white/10 bg-slate-950/55 p-6 shadow-[0_24px_90px_rgba(0,0,0,0.35)]">
+        <div className="mb-6 flex items-center gap-3">
+          <span className="grid h-10 w-10 place-items-center rounded-md bg-sky-300/10 text-sky-100">
+            <Lock size={18} />
+          </span>
+          <div>
+            <h1 className="text-xl font-semibold text-white">{t.loginTitle}</h1>
+            <p className="text-sm text-slate-400">{t.loginBody}</p>
+          </div>
+        </div>
+        <div className="space-y-3">
+          <input
+            className="field"
+            type="email"
+            placeholder={t.email}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+          />
+          <input
+            className="field"
+            type="password"
+            placeholder={t.password}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />
+        </div>
+        {err && <p className="mt-3 text-sm text-red-200">{err}</p>}
+        <button
+          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-sky-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:opacity-60"
+          disabled={loading}
+        >
+          <ShieldCheck size={17} />
+          {loading ? t.loginBusy : t.login}
+        </button>
+      </form>
+    </section>
   );
 }
 
-function AdminPanel({ user }) {
-  const [essays, setEssays] = useState([]);
-  const [showForm, setShowForm] = useState(false);
+function AdminPanel({ language, onSignOut }) {
+  const t = copy[language];
+  const { essays, loading, error: syncError } = useEssays(language);
+  const [form, setForm] = useState(createEmptyEssay);
+  const [editorLanguage, setEditorLanguage] = useState("nl");
   const [isEditing, setIsEditing] = useState(false);
-  const CATEGORIEEN = ["geloof", "filosofie", "ethiek", "AI", "maatschappij", "wetenschap"];
-  const [form, setForm] = useState({
-    title: "",
-    id: "",
-    excerpt: "",
-    body: "",
-    date: new Date().toISOString().slice(0, 10),
-    status: "draft",
-    categories: [],
-  });
+  const [idTouched, setIdTouched] = useState(false);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
 
-  useEffect(() => {
-    const qRef = query(collection(db, "essays"), orderBy("date", "desc"));
-    return onSnapshot(qRef, (snap) => {
-      setEssays(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+  const stats = useMemo(
+    () => ({
+      total: essays.length,
+      published: essays.filter((essay) => essay.status === "published").length,
+      draft: essays.filter((essay) => essay.status !== "published").length,
+      englishReady: essays.filter((essay) => hasEnglishTranslation(essay)).length,
+    }),
+    [essays]
+  );
+
+  const filteredEssays = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return essays.filter((essay) => {
+      const localized = localizeEssay(essay, language);
+      const statusMatch = statusFilter === "all" || essay.status === statusFilter;
+      const searchMatch =
+        !needle ||
+        [essay.title, localized.displayTitle, essay.id, essay.excerpt, localized.displayExcerpt, ...(essay.categories || [])]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(needle));
+      return statusMatch && searchMatch;
     });
-  }, []);
+  }, [essays, language, search, statusFilter]);
+
+  const startNew = () => {
+    setForm(createEmptyEssay());
+    setIsEditing(false);
+    setIdTouched(false);
+    setEditorLanguage("nl");
+    setNotice("");
+    setError("");
+  };
 
   const handleEdit = (essay) => {
-    setIsEditing(true);
-    setShowForm(true);
+    const translations = normalizeTranslations(essay);
     setForm({
       title: essay.title || "",
       id: essay.id || "",
@@ -576,413 +1443,638 @@ function AdminPanel({ user }) {
       date: essay.date || new Date().toISOString().slice(0, 10),
       status: essay.status || "draft",
       categories: essay.categories || [],
+      translations,
+    });
+    setIsEditing(true);
+    setIdTouched(true);
+    setEditorLanguage(language === "en" ? "en" : "nl");
+    setNotice("");
+    setError("");
+  };
+
+  const currentText = editorLanguage === "en" ? form.translations.en : form;
+  const editorHelp = editorLanguage === "en" ? t.admin.englishHelp : t.admin.dutchHelp;
+
+  const setLocalizedField = (field, value) => {
+    if (editorLanguage === "en") {
+      setForm((current) => ({
+        ...current,
+        translations: {
+          ...current.translations,
+          en: {
+            ...current.translations.en,
+            [field]: value,
+          },
+        },
+      }));
+      return;
+    }
+
+    if (field === "title") {
+      setForm((current) => ({
+        ...current,
+        title: value,
+        id: !isEditing && !idTouched ? slugify(value) : current.id,
+      }));
+      return;
+    }
+
+    setForm((current) => ({ ...current, [field]: value }));
+  };
+
+  const toggleCategory = (category) => {
+    setForm((current) => {
+      const hasCategory = current.categories.includes(category);
+      return {
+        ...current,
+        categories: hasCategory
+          ? current.categories.filter((item) => item !== category)
+          : [...current.categories, category],
+      };
     });
   };
 
-  const handleSubmit = async (e) => {
+  const saveEssay = async (e) => {
     e.preventDefault();
-    if (!form.id || !form.title) return;
-    const id = isEditing ? form.id : slugify(form.id);
+    const id = isEditing ? form.id : slugify(form.id || form.title);
+    if (!id || !form.title.trim()) {
+      setError(t.admin.required);
+      return;
+    }
 
-    const payload = {
-      ...form,
-      id,
-      body: sanitizeHTML(form.body), // sanitize bij opslaan
-      updatedAt: serverTimestamp(),
-    };
-    if (!isEditing) payload.createdAt = serverTimestamp();
+    try {
+      setSaving(true);
+      setError("");
+      setNotice("");
 
-    await setDoc(doc(db, "essays", id), payload, { merge: true });
-    setShowForm(false);
-    setIsEditing(false);
-    setForm({
-      title: "",
-      id: "",
-      excerpt: "",
-      body: "",
-      date: new Date().toISOString().slice(0, 10),
-      status: "draft",
-      categories: [],
-    });
+      const en = {
+        title: form.translations.en.title.trim(),
+        excerpt: form.translations.en.excerpt.trim(),
+        body: sanitizeHTML(form.translations.en.body),
+      };
+
+      const payload = {
+        id,
+        title: form.title.trim(),
+        excerpt: form.excerpt.trim(),
+        body: sanitizeHTML(form.body),
+        date: form.date,
+        status: form.status,
+        categories: form.categories,
+        translations: {
+          en,
+        },
+        titleEn: en.title,
+        excerptEn: en.excerpt,
+        bodyEn: en.body,
+        updatedAt: serverTimestamp(),
+      };
+      if (!isEditing) payload.createdAt = serverTimestamp();
+
+      await setDoc(doc(db, "essays", id), payload, { merge: true });
+      setForm((current) => ({ ...current, id }));
+      setIsEditing(true);
+      setIdTouched(true);
+      setNotice(t.admin.saved);
+    } catch (err) {
+      console.error("Essay save failed:", err);
+      setError(t.admin.saveError);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  const handleCancel = () => {
-    setShowForm(false);
-    setIsEditing(false);
-    setForm({
-      title: "",
-      id: "",
-      excerpt: "",
-      body: "",
-      date: new Date().toISOString().slice(0, 10),
-      status: "draft",
-      categories: [],
-    });
+  const updateStatus = async (essay, nextStatus) => {
+    try {
+      setError("");
+      await setDoc(
+        doc(db, "essays", essay.id),
+        { status: nextStatus, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+      setNotice(nextStatus === "published" ? t.admin.published : t.admin.drafted);
+      if (form.id === essay.id) setForm((current) => ({ ...current, status: nextStatus }));
+    } catch (err) {
+      console.error("Status update failed:", err);
+      setError(t.admin.statusError);
+    }
+  };
+
+  const removeEssay = async (essay) => {
+    if (!confirm(t.admin.removeConfirm(essay.title || essay.id))) return;
+    try {
+      setError("");
+      await deleteDoc(doc(db, "essays", essay.id));
+      if (form.id === essay.id) startNew();
+      setNotice(t.admin.removed);
+    } catch (err) {
+      console.error("Essay delete failed:", err);
+      setError(t.admin.removeError);
+    }
   };
 
   return (
-    <div className="max-w-3xl mx-auto my-12">
-      <h2 className="text-2xl font-bold mb-6">Admin Console</h2>
-      <button
-        onClick={() => {
-          setIsEditing(false);
-          setForm({
-            title: "",
-            id: "",
-            excerpt: "",
-            body: "",
-            date: new Date().toISOString().slice(0, 10),
-            status: "draft",
-            categories: [],
-          });
-          setShowForm(true);
-        }}
-        className="mb-6 flex items-center gap-2 bg-gray-900 text-white px-3 py-2 rounded dark:bg-gray-100 dark:text-gray-900"
-      >
-        <Plus size={16} /> Nieuw essay
-      </button>
+    <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mb-6 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <p className="inline-flex items-center gap-2 text-sm font-medium text-sky-200">
+            <ShieldCheck size={16} />
+            {t.admin.eyebrow}
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold text-white">{t.admin.title}</h1>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={startNew}
+            className="inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-200"
+          >
+            <Plus size={17} />
+            {t.actions.newEssay}
+          </button>
+          <button
+            onClick={onSignOut}
+            className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/6 px-4 py-2.5 text-sm font-semibold text-slate-100 transition hover:border-red-300/40 hover:text-red-100"
+          >
+            <LogOut size={17} />
+            {t.actions.signOut}
+          </button>
+        </div>
+      </div>
 
-      {showForm && (
-        <form className="space-y-4 mb-8" onSubmit={handleSubmit}>
-          {isEditing && (
-            <p className="text-sm text-yellow-500 font-medium">Bewerken van bestaand essay</p>
-          )}
-          <div className="grid sm:grid-cols-2 gap-4">
-            <input
-              type="text"
-              placeholder="Unieke ID (slug)"
-              className="border p-2 rounded w-full text-black"
-              value={form.id}
-              onChange={(e) => setForm((f) => ({ ...f, id: e.target.value }))}
-              required
-              disabled={isEditing}
-              maxLength={200}
-            />
-            <input
-              type="text"
-              placeholder="Titel"
-              className="border p-2 rounded w-full text-black"
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              required
-              maxLength={240}
-            />
-            <input
-              type="text"
-              placeholder="Korte samenvatting"
-              className="border p-2 rounded w-full text-black col-span-2"
-              value={form.excerpt}
-              onChange={(e) => setForm((f) => ({ ...f, excerpt: e.target.value }))}
-              maxLength={500}
-            />
-            <input
-              type="date"
-              className="border p-2 rounded w-full text-black"
-              value={form.date}
-              onChange={(e) => setForm((f) => ({ ...f, date: e.target.value }))}
-            />
-            <select
-              className="border p-2 rounded w-full text-black"
-              value={form.status}
-              onChange={(e) => setForm((f) => ({ ...f, status: e.target.value }))}
-            >
-              <option value="draft">Concept</option>
-              <option value="published">Gepubliceerd</option>
-            </select>
-          </div>
+      <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <AdminStat label={t.admin.total} value={stats.total} />
+        <AdminStat label={t.admin.live} value={stats.published} tone="green" />
+        <AdminStat label={t.admin.draft} value={stats.draft} tone="amber" />
+        <AdminStat label={t.admin.englishReady} value={stats.englishReady} tone="blue" />
+      </div>
 
-          {/* ✅ Categorieën selectie */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Categorieën</label>
-            <select
-              multiple
-              value={form.categories}
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  categories: Array.from(e.target.selectedOptions, (o) => o.value),
-                }))
-              }
-              className="border p-2 rounded w-full text-black dark:bg-gray-900 dark:text-white"
-            >
-              {CATEGORIEEN.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-gray-500 mt-1">Houd Ctrl (Windows) of Cmd (Mac) ingedrukt om meerdere te selecteren</p>
-          </div>
-
-          <TipTapEditor value={form.body} onChange={(val) => setForm((f) => ({ ...f, body: val }))} />
-
-          <div className="mt-4">
-            <h3 className="text-lg font-semibold mb-2">Live Preview</h3>
-            <div
-              className="prose dark:prose-invert max-w-none border p-4 rounded bg-white text-black dark:bg-gray-900 dark:text-white"
-              dangerouslySetInnerHTML={{ __html: sanitizeHTML(form.body) }}
-            />
-          </div>
-
-          <div className="flex gap-2">
-            <button type="submit" className="bg-gray-900 text-white px-4 py-2 rounded dark:bg-gray-100 dark:text-gray-900">
-              Opslaan
-            </button>
-            <button type="button" onClick={handleCancel} className="bg-gray-200 text-gray-900 px-4 py-2 rounded dark:bg-gray-800 dark:text-white">
-              Annuleer
-            </button>
-          </div>
-        </form>
+      {(syncError || error || notice) && (
+        <div className="mb-5 space-y-2">
+          {syncError && <p className="rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">{syncError}</p>}
+          {error && <p className="rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">{error}</p>}
+          {notice && <p className="rounded-md border border-emerald-300/20 bg-emerald-300/10 px-3 py-2 text-sm text-emerald-100">{notice}</p>}
+        </div>
       )}
 
-      <div className="divide-y dark:divide-gray-800">
-        {essays.map((e) => (
-          <div key={e.id} className="py-4 flex flex-col md:flex-row md:items-center gap-2 md:gap-6">
-            <span className="font-bold">{e.title}</span>
-            <span className="text-xs text-gray-500">{e.id}</span>
-            <span className="text-xs text-gray-500">{e.date}</span>
-            <span className="text-xs text-gray-500">{e.status}</span>
+      <div className="grid gap-5 lg:grid-cols-[minmax(320px,0.82fr)_minmax(0,1.35fr)]">
+        <aside className="rounded-lg border border-white/10 bg-slate-950/52 p-4">
+          <div className="space-y-3">
+            <label className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
+              <input
+                className="field pl-10"
+                placeholder={t.admin.search}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                ["all", t.admin.all],
+                ["published", t.admin.live],
+                ["draft", t.admin.draft],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  onClick={() => setStatusFilter(value)}
+                  className={cx(
+                    "rounded-md border px-3 py-2 text-sm transition",
+                    statusFilter === value
+                      ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+                      : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
 
-            {e.status === "draft" && (
-              <button
-                className="text-blue-500 text-xs underline"
-                onClick={async () => {
-                  await setDoc(doc(db, "essays", e.id), { ...e, status: "published", updatedAt: serverTimestamp() });
-                }}
-              >
-                Publiceer
-              </button>
+          <div className="mt-4 max-h-[780px] space-y-2 overflow-y-auto pr-1">
+            {loading && <p className="p-3 text-sm text-slate-400">{t.firebase.loading}</p>}
+            {!loading && filteredEssays.length === 0 && (
+              <p className="rounded-md border border-white/10 bg-white/5 p-4 text-sm text-slate-400">
+                {t.admin.noEssays}
+              </p>
             )}
+            {filteredEssays.map((essay) => {
+              const localized = localizeEssay(essay, language);
+              const englishReady = hasEnglishTranslation(essay);
+              return (
+                <div
+                  key={essay.id}
+                  className={cx(
+                    "rounded-md border p-3 transition",
+                    form.id === essay.id
+                      ? "border-sky-300/45 bg-sky-300/10"
+                      : "border-white/10 bg-white/5 hover:border-white/20"
+                  )}
+                >
+                  <button onClick={() => handleEdit(essay)} className="block w-full text-left">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <h3 className="font-semibold leading-snug text-white">{localized.displayTitle || t.admin.untitled}</h3>
+                        <p className="mt-1 text-xs text-slate-500">{essay.id}</p>
+                      </div>
+                      <StatusBadge status={essay.status} language={language} />
+                    </div>
+                    <p className="mt-2 text-xs text-slate-400">{formatDate(essay.date, language)}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="rounded border border-slate-400/20 bg-white/5 px-2 py-1 text-[11px] font-semibold text-slate-300">
+                        NL
+                      </span>
+                      <span
+                        className={cx(
+                          "rounded border px-2 py-1 text-[11px] font-semibold",
+                          englishReady
+                            ? "border-emerald-300/25 bg-emerald-300/10 text-emerald-100"
+                            : "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                        )}
+                      >
+                        {englishReady ? "EN" : t.admin.translationMissing}
+                      </span>
+                    </div>
+                  </button>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleEdit(essay)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-slate-200 hover:border-sky-300/35"
+                    >
+                      <Pencil size={13} />
+                      {t.actions.edit}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateStatus(essay, essay.status === "published" ? "draft" : "published")}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-slate-200 hover:border-emerald-300/35"
+                    >
+                      <CheckCircle2 size={13} />
+                      {essay.status === "published" ? t.actions.draft : t.actions.publish}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeEssay(essay)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-white/10 px-2.5 py-1.5 text-xs text-red-100 hover:border-red-300/35"
+                    >
+                      <Trash2 size={13} />
+                      {t.actions.remove}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </aside>
 
-            <button className="text-green-500 text-xs underline" onClick={() => handleEdit(e)}>
-              Bewerken
-            </button>
-
-            <button className="text-red-500 text-xs underline" onClick={async () => await deleteDoc(doc(db, "essays", e.id))}>
-              Verwijder
+        <form onSubmit={saveEssay} className="rounded-lg border border-white/10 bg-slate-950/52 p-4 sm:p-5">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-4">
+            <div>
+              <p className="text-sm text-slate-400">{isEditing ? t.admin.existingEssay : t.admin.newEssay}</p>
+              <h2 className="text-xl font-semibold text-white">{currentText.title || form.title || t.admin.workingTitle}</h2>
+            </div>
+            <button
+              type="submit"
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:opacity-60"
+            >
+              <Save size={17} />
+              {saving ? t.actions.saving : t.actions.save}
             </button>
           </div>
-        ))}
+
+          <div className="mb-5 flex flex-wrap gap-2">
+            {[
+              ["nl", t.admin.dutchVersion],
+              ["en", t.admin.englishVersion],
+            ].map(([code, label]) => (
+              <button
+                key={code}
+                type="button"
+                onClick={() => setEditorLanguage(code)}
+                className={cx(
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
+                  editorLanguage === code
+                    ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+                    : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+                )}
+              >
+                <Languages size={15} />
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mb-5 rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">{editorHelp}</p>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-300">{t.admin.titleLabel}</span>
+              <input
+                className="field"
+                value={currentText.title}
+                onChange={(e) => setLocalizedField("title", e.target.value)}
+                placeholder={t.admin.titlePlaceholder}
+                maxLength={240}
+                required={editorLanguage === "nl"}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-300">{t.admin.slugLabel}</span>
+              <input
+                className="field disabled:opacity-60"
+                value={form.id}
+                onChange={(e) => {
+                  setIdTouched(true);
+                  setForm((current) => ({ ...current, id: slugify(e.target.value) }));
+                }}
+                placeholder={t.admin.slugPlaceholder}
+                disabled={isEditing || editorLanguage === "en"}
+                maxLength={200}
+                required
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-300">{t.admin.dateLabel}</span>
+              <input
+                type="date"
+                className="field"
+                value={form.date}
+                onChange={(e) => setForm((current) => ({ ...current, date: e.target.value }))}
+              />
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm font-medium text-slate-300">{t.admin.statusLabel}</span>
+              <select
+                className="field"
+                value={form.status}
+                onChange={(e) => setForm((current) => ({ ...current, status: e.target.value }))}
+              >
+                <option value="draft">{t.status.draft}</option>
+                <option value="published">{t.status.published}</option>
+              </select>
+            </label>
+            <label className="space-y-2 md:col-span-2">
+              <span className="text-sm font-medium text-slate-300">{t.admin.excerptLabel}</span>
+              <textarea
+                className="field min-h-24 resize-y"
+                value={currentText.excerpt}
+                onChange={(e) => setLocalizedField("excerpt", e.target.value)}
+                placeholder={t.admin.excerptPlaceholder}
+                maxLength={500}
+              />
+            </label>
+          </div>
+
+          <div className="mt-5">
+            <p className="mb-2 text-sm font-medium text-slate-300">{t.admin.categoriesLabel}</p>
+            <div className="flex flex-wrap gap-2">
+              {CATEGORIES.map((category) => {
+                const active = form.categories.includes(category);
+                return (
+                  <button
+                    key={category}
+                    type="button"
+                    onClick={() => toggleCategory(category)}
+                    className={cx(
+                      "rounded-md border px-3 py-2 text-sm transition",
+                      active
+                        ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+                        : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+                    )}
+                  >
+                    {categoryLabels[language][category] || category}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-6">
+            <p className="mb-2 text-sm font-medium text-slate-300">{t.admin.bodyLabel}</p>
+            <TipTapEditor value={currentText.body} onChange={(val) => setLocalizedField("body", val)} />
+          </div>
+
+          <div className="mt-6 rounded-lg border border-white/10 bg-slate-950/65 p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-300">
+              <FileText size={16} />
+              {t.admin.preview}
+            </div>
+            <div
+              className="prose prose-invert max-w-none prose-headings:text-white prose-a:text-sky-200"
+              dangerouslySetInnerHTML={{
+                __html: sanitizeHTML(currentText.body || `<p>${t.admin.noText}</p>`),
+              }}
+            />
+          </div>
+        </form>
       </div>
+    </section>
+  );
+}
+
+function AdminStat({ label, value, tone = "blue" }) {
+  const toneClass =
+    tone === "green"
+      ? "text-emerald-100 border-emerald-300/20 bg-emerald-300/8"
+      : tone === "amber"
+        ? "text-amber-100 border-amber-300/20 bg-amber-300/8"
+        : "text-sky-100 border-sky-300/20 bg-sky-300/8";
+
+  return (
+    <div className={cx("rounded-lg border p-4", toneClass)}>
+      <p className="text-sm text-slate-400">{label}</p>
+      <p className="mt-2 text-3xl font-semibold text-white">{value}</p>
     </div>
   );
 }
 
-// ----------------------------------- APP MAIN ------------------------------------------------------
+function AboutPage({ language }) {
+  const t = copy[language].pages;
+  return (
+    <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+      <p className="text-sm font-medium text-sky-200">{t.aboutEyebrow}</p>
+      <h1 className="mt-2 text-4xl font-semibold text-white">{t.aboutTitle}</h1>
+      <div className="prose prose-invert mt-8 max-w-none prose-a:text-sky-200">
+        {t.about.map((paragraph) => (
+          <p key={paragraph}>
+            {paragraph.includes("@") ? (
+              <>
+                {paragraph.split("feedback@degrondvraag.com")[0]}
+                <a href="mailto:feedback@degrondvraag.com">feedback@degrondvraag.com</a>
+                {paragraph.split("feedback@degrondvraag.com")[1]}
+              </>
+            ) : (
+              paragraph
+            )}
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function RoadmapPage({ language }) {
+  const t = copy[language].pages;
+  return (
+    <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
+      <p className="text-sm font-medium text-sky-200">{t.roadmapEyebrow}</p>
+      <h1 className="mt-2 text-4xl font-semibold text-white">{t.roadmapTitle}</h1>
+      <div className="mt-8 grid gap-4 md:grid-cols-2">
+        <RoadmapBlock title={t.now} items={t.nowItems} />
+        <RoadmapBlock title={t.later} items={t.laterItems} />
+      </div>
+    </section>
+  );
+}
+
+function RoadmapBlock({ title, items }) {
+  return (
+    <div className="rounded-lg border border-white/10 bg-slate-950/52 p-5">
+      <h2 className="text-xl font-semibold text-white">{title}</h2>
+      <ul className="mt-4 space-y-3">
+        {items.map((item) => (
+          <li key={item} className="flex gap-3 text-sm leading-6 text-slate-300">
+            <CheckCircle2 className="mt-1 shrink-0 text-sky-200" size={16} />
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function PrivacyPage({ language }) {
+  const t = copy[language].pages;
+  return (
+    <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
+      <p className="text-sm font-medium text-sky-200">{t.privacyEyebrow}</p>
+      <h1 className="mt-2 text-4xl font-semibold text-white">{t.privacyTitle}</h1>
+      <div className="prose prose-invert mt-8 max-w-none prose-a:text-sky-200">
+        {t.privacy.map((paragraph) => (
+          <p key={paragraph}>
+            {paragraph.includes("info@degrondvraag.com") ? (
+              <>
+                {paragraph.split("info@degrondvraag.com")[0]}
+                <a href="mailto:info@degrondvraag.com">info@degrondvraag.com</a>
+                {paragraph.split("info@degrondvraag.com")[1]}
+              </>
+            ) : (
+              paragraph
+            )}
+          </p>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function NotFoundPage({ language }) {
+  const t = copy[language];
+  return (
+    <section className="mx-auto max-w-3xl px-4 py-16 text-center">
+      <EmptyState
+        title={t.pages.notFoundTitle}
+        body={t.pages.notFoundBody}
+        action={
+          <Link
+            to="/"
+            className="mt-5 inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-2.5 text-sm font-semibold text-slate-950"
+          >
+            {t.actions.toStart}
+            <ArrowRight size={16} />
+          </Link>
+        }
+      />
+    </section>
+  );
+}
+
+function Footer({ language }) {
+  const t = copy[language].nav;
+  return (
+    <footer className="border-t border-white/10 bg-[#020817]/70 px-4 py-8 text-sm text-slate-500 sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <p>&copy; {new Date().getFullYear()} degrondvraag.com</p>
+        <div className="flex gap-4">
+          <Link to="/privacy" className="hover:text-slate-200">
+            Privacy
+          </Link>
+          <Link to="/over" className="hover:text-slate-200">
+            {t.about}
+          </Link>
+        </div>
+      </div>
+    </footer>
+  );
+}
+
 export default function App() {
-  const [dark, setDark] = useDarkMode();
+  const [language, setLanguage] = useLanguage();
   const [admin, setAdmin] = useState(false);
-  const [user, setUser] = useState(null);
 
   useEffect(() => {
     const auth = getAuth(app);
+    let anonymousStarted = false;
     const unsub = onAuthStateChanged(auth, async (usr) => {
-      setUser(usr);
-      if (usr) {
-        try {
-          const token = await usr.getIdTokenResult();
-          setAdmin(token?.claims?.admin === true);
-        } catch {
-          setAdmin(false);
-        }
-      } else {
+      if (!usr) {
         setAdmin(false);
+        if (!anonymousStarted) {
+          anonymousStarted = true;
+          signInAnonymously(auth).catch((err) => console.error("Anonymous sign-in failed:", err));
+        }
+        return;
+      }
+
+      if (usr.isAnonymous) {
+        setAdmin(false);
+        return;
+      }
+
+      try {
+        const token = await usr.getIdTokenResult();
+        setAdmin(token?.claims?.admin === true || Boolean(usr.email));
+      } catch {
+        setAdmin(Boolean(usr.email));
       }
     });
-    // anonieme sessie voor likes/comments
-    signInAnonymously(auth).catch(() => {});
+
     return unsub;
   }, []);
 
-  const [overHover, setOverHover] = useState(0);
+  const handleSignOut = async () => {
+    await signOut(getAuth(app));
+    setAdmin(false);
+  };
 
   return (
     <Router>
-      <div className="relative z-10 min-h-screen bg-white dark:bg-gray-900 text-gray-900 dark:text-white transition-colors">
-        <header className="flex justify-between items-center px-6 py-4 max-w-4xl mx-auto">
-          <Link to="/" className="text-xl font-bold">
-            degrondvraag
-          </Link>
-          <nav className="flex gap-4 items-center">
-            <Link to="/essays" className="hover:underline">
-              Essays
-            </Link>
-            <Link
-              to="/over"
-              className="hover:underline cursor-pointer"
-              onMouseEnter={() => setOverHover((v) => v + 1)}
-              onMouseLeave={() => setOverHover(0)}
-            >
-              Over
-            </Link>
-
-            <Link to="/roadmap">Roadmap</Link>
-
-            <button onClick={() => setDark(!dark)} aria-label={dark ? "Switch naar licht thema" : "Switch naar donker thema"}>
-              {dark ? <Sun size={18} /> : <Moon size={18} />}
-            </button>
-            {admin && (
-              <>
-                <Link to="/admin" className="text-green-400 flex items-center gap-1 hover:underline">
-                  <Plus size={16} /> Administrator
-                </Link>
-                <button
-                  onClick={() => {
-                    signOut(getAuth(app));
-                    setAdmin(false);
-                  }}
-                  className="text-sm text-gray-500 dark:text-gray-300 hover:text-red-500"
-                  title="Uitloggen"
-                  aria-label="Uitloggen"
-                >
-                  <LogOut size={18} />
-                </button>
-              </>
-            )}
-          </nav>
-          <AdminEntry hovered={overHover} />
-        </header>
-
-        <main className="px-6 pb-12 pt-4">
+      <BackgroundScene />
+      <div className="min-h-screen text-slate-100">
+        <Header language={language} setLanguage={setLanguage} admin={admin} onSignOut={handleSignOut} />
+        <main>
           <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/essays" element={<EssaysOverviewPage />} />
-            <Route path="/essays/:id" element={<EssayPage />} />
-            <Route path="/over" element={<AboutPage />} />
-            <Route path="/roadmap" element={<RoadmapPage />} />
-            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/" element={<HomePage language={language} />} />
+            <Route path="/essays" element={<EssaysOverviewPage language={language} />} />
+            <Route path="/essays/:id" element={<EssayPage language={language} />} />
+            <Route path="/over" element={<AboutPage language={language} />} />
+            <Route path="/roadmap" element={<RoadmapPage language={language} />} />
+            <Route path="/privacy" element={<PrivacyPage language={language} />} />
             <Route
               path="/admin"
-              element={admin ? <AdminPanel user={user} /> : <AdminLogin onLogin={() => setAdmin(true)} />}
+              element={
+                admin ? (
+                  <AdminPanel language={language} onSignOut={handleSignOut} />
+                ) : (
+                  <AdminLogin language={language} onLogin={() => setAdmin(true)} />
+                )
+              }
             />
-            <Route path="*" element={<NotFoundPage />} />
+            <Route path="*" element={<NotFoundPage language={language} />} />
           </Routes>
         </main>
-
-        <footer className="text-center text-sm text-gray-500 dark:text-gray-400 border-t border-gray-200 dark:border-gray-700 py-6 mt-12">
-          <div className="space-x-4">
-            <Link to="/privacy" className="underline">Privacy</Link>
-            <Link to="/over" className="underline">Over</Link>
-          </div>
-          <div className="mt-2">&copy; {new Date().getFullYear()} degrondvraag.com</div>
-        </footer>
+        <Footer language={language} />
       </div>
-
-      {/* Vercel Analytics */}
       <Analytics />
     </Router>
-  );
-}
-
-function useDarkMode() {
-  const [dark, setDark] = useState(() => {
-    const stored = localStorage.getItem("theme");
-    if (stored) return stored === "dark";
-    // volg OS voorkeur als geen stored theme
-    return window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
-  });
-
-  useEffect(() => {
-    document.documentElement.classList.toggle("dark", dark);
-    localStorage.setItem("theme", dark ? "dark" : "light");
-  }, [dark]);
-
-  return [dark, setDark];
-}
-
-function AboutPage() {
-  return (
-    <section className="space-y-6 max-w-prose mx-auto">
-      <h2 className="text-3xl font-semibold">Over deze site</h2>
-      <p>
-        Ik schrijf anoniem om het denken niet te verankeren aan één identiteit. Alles hier is experiment, hypothese, uitnodiging tot dialoog.
-      </p>
-
-      <h3 className="text-xl font-bold mt-6 mb-2">Disclaimers:</h3>
-      <p>
-        Let op: Chatgesprekken met Clarus zijn toegankelijk voor beheerders en kunnen worden gebruikt voor onderzoek en verbetering van de AI. Gebruik Clarus niet om breaches te zoeken of persoonlijke informatie te delen. Ik doe mijn best om de AI te verbeteren, maar het is geen vervanging voor menselijke reflectie.
-      </p>
-
-      <h3 className="text-xl font-bold mt-6 mb-2">Dan nog:</h3>
-      <p>
-        Degrondvraag.com is ongeveer een weekje oud. Er is een grote kans dat je hier en daar nog wat bugs tegenkomt. Mocht je iets tegenkomen wat niet werkt, of heb je een suggestie voor verbetering? Stuur dan een mailtje naar feedback@degrondvraag.com
-      </p>
-      <p>Deze site is gebouwd met React, Firebase en Tailwind CSS. De essays zijn geschreven in Markdown en worden dynamisch geladen.</p>
-    </section>
-  );
-}
-
-function RoadmapPage() {
-  return (
-    <section className="max-w-prose mx-auto space-y-6">
-      <h2 className="text-3xl font-semibold">Roadmap</h2>
-      <p>Deze website wordt onderhouden door één ambitieuze individu. Wat kun je verwachten op degrondvraag.com?</p>
-
-      <div>
-        <h3 className="text-xl font-bold mt-6 mb-2">In ontwikkeling</h3>
-        <ul className="list-disc ml-5 space-y-1">
-          <li>Google Adsense integratie (juli 2025)</li>
-          <li>Essay tags, viewcount & filtermogelijkheden</li>
-          <li>Verbeterde Clarus-gesprekken (sneller, contextueler)</li>
-          <li>Feedback pagina (email naar info@degrondvraag.com)</li>
-        </ul>
-      </div>
-
-      <div>
-        <h3 className="text-xl font-bold mt-6 mb-2">Recent afgerond</h3>
-        <ul className="list-disc ml-5 space-y-1">
-          <li>Adminconsole gelanceerd</li>
-          <li>Essay-reacties toegevoegd</li>
-          <li>Chatfunctie Clarus</li>
-          <li>RAG-Database opzetten en koppelen aan backend, bijbel vectorizen en op basis van tokens uitlezen om hallucinaties te voorkomen.</li>
-        </ul>
-      </div>
-    </section>
-  );
-}
-
-function PrivacyPage() {
-  return (
-    <section className="max-w-prose mx-auto py-12 space-y-6">
-      <h2 className="text-3xl font-bold">Privacy & Transparantie</h2>
-      <p>
-        <strong>Clarus</strong> is een experimenteel algoritme dat is ontworpen om de kern van deze essays op een bijzonder diep niveau te doorgronden. Het doel is niet oppervlakkig advies, maar werkelijk lucide reflectie op existentiële vragen.<br />
-      </p>
-      <p>
-        <strong>Clarus</strong> is geen commercieel product, maar een voortdurend lerend project. Iedere dag wordt het model slimmer op basis van feedback en (anonieme) gebruikersinteracties.
-      </p>
-      <p>
-        Omdat Clarus voortdurend leert en wordt bijgestuurd, kunnen jouw vragen en gesprekken bijdragen aan het verfijnen van zijn antwoorden. Soms reageert Clarus dus scherper, soms wellicht iets minder lucide – dat hoort bij het groeiproces van kunstmatige intelligentie.
-      </p>
-      <h3 className="text-xl font-semibold mt-8">Wat gebeurt er met mijn chat?</h3>
-      <ul className="list-disc pl-6 space-y-1">
-        <li>Gesprekken met Clarus kunnen worden opgeslagen en geanalyseerd om de kwaliteit van antwoorden te verbeteren.</li>
-        <li>Jouw vragen worden nooit actief verkocht of commercieel gedeeld.</li>
-        <li>
-          Deel <span className="font-bold text-red-600">geen gevoelige of persoonlijke informatie</span> in de chat.
-        </li>
-      </ul>
-      <h3 className="text-xl font-semibold mt-8">Waarom deze aanpak?</h3>
-      <p>
-        Clarus is bedoeld als open denkoefening en leert voortdurend van de input die gebruikers geven. Jouw feedback maakt het systeem slimmer, eerlijker en meer afgestemd op de vragen van andere mensen.<br /> Het systeem kan soms fouten maken; zie Clarus vooral als <span className="italic">gespreksgenoot</span>, niet als ultieme autoriteit.
-      </p>
-      <h3 className="text-xl font-semibold mt-8">Vragen?</h3>
-      <p>
-        Heb je vragen of zorgen over privacy, mail dan gerust: <a href="mailto:info@degrondvraag.com" className="text-blue-600 underline">info@degrondvraag.com</a>
-      </p>
-      <p className="text-xs text-gray-500">Laatste update: juli 2025</p>
-    </section>
-  );
-}
-
-function NotFoundPage() {
-  return (
-    <section className="max-w-prose mx-auto py-12 text-center space-y-4">
-      <h1 className="text-3xl font-bold">404</h1>
-      <p>Pagina niet gevonden.</p>
-      <Link to="/" className="text-blue-600 underline">
-        Terug naar home
-      </Link>
-    </section>
   );
 }

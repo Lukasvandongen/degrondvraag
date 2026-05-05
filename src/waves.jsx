@@ -238,36 +238,33 @@ const Waves = ({
   }, []);
 
   return (
-  <div
-    ref={containerRef}
-    className={`waves ${className}`}
-    style={{
-      position: "absolute",
-      top: 0,
-      left: 0,
-      margin: 0,
-      padding: 0,
-      width: "100%",
-      height: "100%",
-      overflow: "hidden",
-      backgroundColor: "#ff00ff10",  // Voeg fel kleurtje toe!
-      ...style,
-    }}
-  >
-    <p style={{
-      position: "absolute",
-      left: 10,
-      top: 10,
-      zIndex: 1000,
-      color: "red",
-      fontWeight: "bold"
-    }}>WAVES DIV!</p>
-    <canvas ref={canvasRef} className="waves-canvas" style={{
-      border: "2px solid red", width: "100%", height: "100%",
-      background: "rgba(255,255,0,0.1)"
-    }} />
-  </div>
-);
+    <div
+      ref={containerRef}
+      className={`waves ${className}`}
+      style={{
+        position: "absolute",
+        inset: 0,
+        margin: 0,
+        padding: 0,
+        width: "100%",
+        height: "100%",
+        overflow: "hidden",
+        backgroundColor,
+        ...style,
+      }}
+    >
+      <canvas
+        ref={canvasRef}
+        className="waves-canvas"
+        style={{
+          display: "block",
+          width: "100%",
+          height: "100%",
+        }}
+      />
+    </div>
+  );
+};
 
 
 export default Waves;
