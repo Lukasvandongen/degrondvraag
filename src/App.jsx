@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Pencil,
   Plus,
+  RefreshCcw,
   Save,
   Search,
   Send,

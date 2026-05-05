@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Info, MessageSquare, RefreshCcw, Send, X } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const PANEL_WIDTH = 430;
 
@@ -15,6 +17,8 @@ const copy = {
     send: "Verstuur",
     placeholder: "Stel een vraag over dit essay...",
     loading: "Clarus formuleert een antwoord.",
+    queued:
+      "Je vraag staat klaar. Als Render de backend wakker moet maken, kan dit ongeveer 50 seconden duren. Daarna verschijnt het antwoord hier woord voor woord.",
     noBackend: "Clarus is nog niet verbonden met de backend.",
     emptyAnswer: "Clarus gaf geen bruikbaar antwoord terug.",
     intro: (title) =>
@@ -40,6 +44,8 @@ const copy = {
     send: "Send",
     placeholder: "Ask a question about this essay...",
     loading: "Clarus is composing an answer.",
+    queued:
+      "Your question is queued. If Render needs to wake the backend, this can take about 50 seconds. After that, the answer will appear here word by word.",
     noBackend: "Clarus is not connected to the backend yet.",
     emptyAnswer: "Clarus returned no usable answer.",
     intro: (title) =>
@@ -61,10 +67,54 @@ function getSessionKey(language, essayId) {
 }
 
 function toBackendHistory(messages) {
-  return messages.map((message) => ({
-    role: message.from === "user" ? "user" : "assistant",
-    content: message.text,
-  }));
+  return messages
+    .filter((message) => !message.pending)
+    .map((message) => ({
+      role: message.from === "user" ? "user" : "assistant",
+      content: message.text,
+    }));
+}
+
+function parseSseRecord(record) {
+  const lines = record.split("\n");
+  let event = "message";
+  const data = [];
+
+  for (const line of lines) {
+    if (line.startsWith("event:")) event = line.slice(6).trim();
+    if (line.startsWith("data:")) data.push(line.slice(5).trimStart());
+  }
+
+  return {
+    event,
+    payload: data.length ? JSON.parse(data.join("\n")) : {},
+  };
+}
+
+function MarkdownMessage({ children }) {
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        p: ({ children: nodeChildren }) => <p className="mb-2 last:mb-0">{nodeChildren}</p>,
+        strong: ({ children: nodeChildren }) => <strong className="font-semibold text-white">{nodeChildren}</strong>,
+        em: ({ children: nodeChildren }) => <em className="text-sky-100">{nodeChildren}</em>,
+        ol: ({ children: nodeChildren }) => <ol className="mb-2 list-decimal space-y-1 pl-5">{nodeChildren}</ol>,
+        ul: ({ children: nodeChildren }) => <ul className="mb-2 list-disc space-y-1 pl-5">{nodeChildren}</ul>,
+        li: ({ children: nodeChildren }) => <li className="pl-1">{nodeChildren}</li>,
+        h1: ({ children: nodeChildren }) => <h3 className="mb-2 text-base font-semibold text-white">{nodeChildren}</h3>,
+        h2: ({ children: nodeChildren }) => <h3 className="mb-2 text-base font-semibold text-white">{nodeChildren}</h3>,
+        h3: ({ children: nodeChildren }) => <h3 className="mb-2 text-sm font-semibold text-white">{nodeChildren}</h3>,
+        code: ({ children: nodeChildren }) => (
+          <code className="rounded border border-white/10 bg-slate-950/70 px-1 py-0.5 text-[0.92em] text-sky-100">
+            {nodeChildren}
+          </code>
+        ),
+      }}
+    >
+      {String(children || "")}
+    </ReactMarkdown>
+  );
 }
 
 export default function ChatPanel({ essay, language = "nl", onClose }) {
@@ -133,11 +183,21 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
 
     setLoading(true);
     const userMessage = { from: "user", text: question };
-    const outgoingMessages = [...messages, userMessage];
+    const placeholderMessage = { from: "clarus", text: t.queued, pending: true };
+    const outgoingMessages = [...messages, userMessage, placeholderMessage];
+    const placeholderIndex = outgoingMessages.length - 1;
     setMessages(outgoingMessages);
 
+    const updatePlaceholder = (text, pending = true) => {
+      setMessages((current) =>
+        current.map((message, index) =>
+          index === placeholderIndex ? { ...message, text, pending } : message
+        )
+      );
+    };
+
     try {
-      const res = await fetch(`${backendUrl}/chat`, {
+      const res = await fetch(`${backendUrl}/chat-stream`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -150,26 +210,48 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
         }),
       });
 
-      let data = {};
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error("Server returned invalid JSON.");
-      }
-
       if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
         throw new Error(data?.error || `Server error ${res.status}`);
       }
+      if (!res.body) throw new Error(t.emptyAnswer);
 
-      const answer = typeof data?.antwoord === "string" ? data.antwoord.trim() : "";
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let answer = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const records = buffer.split("\n\n");
+        buffer = records.pop() || "";
+
+        for (const record of records) {
+          if (!record.trim()) continue;
+          const { event, payload } = parseSseRecord(record);
+          if (event === "status" && !answer) {
+            updatePlaceholder(payload.message || t.queued);
+          }
+          if (event === "token") {
+            answer += payload.token || "";
+            updatePlaceholder(answer || t.loading);
+          }
+          if (event === "error") {
+            throw new Error(payload.error || t.emptyAnswer);
+          }
+          if (event === "done") {
+            updatePlaceholder(answer || t.emptyAnswer, false);
+          }
+        }
+      }
+
       if (!answer) throw new Error(t.emptyAnswer);
-
-      setMessages((current) => [...current, { from: "clarus", text: answer }]);
+      updatePlaceholder(answer, false);
     } catch (err) {
-      setMessages((current) => [
-        ...current,
-        { from: "clarus", text: err instanceof Error ? err.message : t.emptyAnswer },
-      ]);
+      updatePlaceholder(err instanceof Error ? err.message : t.emptyAnswer, false);
     } finally {
       setLoading(false);
     }
@@ -267,13 +349,17 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
                       key={`${message.from}-${index}`}
                       className={message.from === "user" ? "ml-auto max-w-[84%] rounded-lg rounded-br-sm border border-sky-300/20 bg-sky-300/14 px-3 py-2.5 text-sm leading-6 text-sky-50" : "max-w-[88%] rounded-lg rounded-bl-sm border border-white/10 bg-white/7 px-3 py-2.5 text-sm leading-6 text-slate-200"}
                     >
-                      {String(message.text || "")
-                        .split("\n")
-                        .map((line, lineIndex) => (
-                          <p key={lineIndex} className="mb-2 last:mb-0">
-                            {line}
-                          </p>
-                        ))}
+                      {message.from === "clarus" ? (
+                        <MarkdownMessage>{message.text}</MarkdownMessage>
+                      ) : (
+                        String(message.text || "")
+                          .split("\n")
+                          .map((line, lineIndex) => (
+                            <p key={lineIndex} className="mb-2 last:mb-0">
+                              {line}
+                            </p>
+                          ))
+                      )}
                     </div>
                   ))}
                   {loading && <p className="text-xs text-slate-500">{t.loading}</p>}
