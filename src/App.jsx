@@ -1,5 +1,5 @@
 import { Analytics } from "@vercel/analytics/react";
-import { useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   BrowserRouter as Router,
   Link,
@@ -35,6 +35,8 @@ import {
 } from "lucide-react";
 import DOMPurify from "dompurify";
 import TipTapEditor from "./TipTapEditor";
+
+const ChatPanel = lazy(() => import("./ChatPanel"));
 
 import { initializeApp } from "firebase/app";
 import {
@@ -135,6 +137,8 @@ const copy = {
       reply: "Reageer",
       send: "Verzenden",
       sending: "Verzenden...",
+      askClarus: "Vraag Clarus",
+      refresh: "Vernieuw",
       signOut: "Uitloggen",
       newEssay: "Nieuw essay",
       toStart: "Naar start",
@@ -225,6 +229,14 @@ const copy = {
       commentsLoadError: "Reacties konden niet worden geladen.",
       commentsDeleteError: "Reactie verwijderen is mislukt.",
       feedbackDeleteError: "Feedback verwijderen is mislukt.",
+      clarusLogsTitle: "Clarus logs",
+      clarusLogsEmpty: "Nog geen Clarus gesprekken.",
+      clarusLogsLoadError: "Clarus logs konden niet worden geladen.",
+      clarusLogsBackendMissing: "VITE_BACKEND_URL ontbreekt.",
+      clarusLogsAuthError: "Admin token kon niet worden opgehaald.",
+      clarusQuestion: "Vraag",
+      clarusAnswer: "Antwoord",
+      clarusError: "Fout",
       search: "Zoek titel, slug, categorie",
       all: "Alles",
       loginTitle: "Admin login",
@@ -270,7 +282,7 @@ const copy = {
       aboutTitle: "Over deze site",
       about: [
         "Ik schrijf anoniem om het denken niet vast te zetten aan een enkele identiteit. De essays zijn experimenten: soms scherp, soms zoekend, altijd bedoeld als uitnodiging tot verder denken.",
-        "Clarus staat in deze frontend voorlopig niet centraal. De prioriteit ligt nu bij een betere leeservaring, een praktischer adminpaneel en een stabielere basis voor de volgende backendstap.",
+        "Clarus is de reflectieve assistent bij de essays. Hij gebruikt geen Qdrant-database en geen religieuze databron, maar de essaytekst, projectcontext en vooraf geschreven instructies om vragen preciezer te maken.",
         "Gebruik de feedbackpagina voor opmerkingen, suggesties of foutmeldingen. Er is geen werkend feedbackadres per e-mail.",
       ],
       roadmapEyebrow: "Roadmap",
@@ -282,17 +294,18 @@ const copy = {
         "Admin sneller maken voor schrijven, filteren en publiceren",
         "Firebase-fouten netter opvangen in de interface",
         "Engelse versies toevoegen voor alle publieke tekst en essays",
+        "Clarus opnieuw aansluiten zonder Qdrant en met transparante gesprekslogging",
       ],
       laterItems: [
-        "Clarus opnieuw aansluiten wanneer Qdrant en RAG weer beschikbaar zijn",
-        "Feedbackpagina toevoegen",
+        "Clarus evalueren op stijl, nauwkeurigheid en bruikbaarheid",
+        "Feedback en Clarus logs gebruiken voor gerichte verbetering",
         "Publicatieflow verder automatiseren",
       ],
       privacyEyebrow: "Privacy",
       privacyTitle: "Privacy & transparantie",
       privacy: [
         "Reacties en stemmen kunnen via Firebase worden opgeslagen. E-mailadressen bij reacties worden gehasht en niet publiek getoond.",
-        "Clarus is tijdelijk uit de hoofdflow gehaald. Wanneer de chat later terugkomt, wordt op deze pagina duidelijk vermeld welke gesprekken worden opgeslagen en waarvoor ze gebruikt worden.",
+        "Clarus gesprekken worden op de backend gelogd om fouten, stijl en bruikbaarheid te beoordelen. Deel geen persoonlijke of gevoelige informatie in de chat.",
         "Vragen of zorgen kunnen via de feedbackpagina worden gestuurd.",
       ],
       notFoundTitle: "Pagina niet gevonden",
@@ -336,6 +349,8 @@ const copy = {
       reply: "Respond",
       send: "Send",
       sending: "Sending...",
+      askClarus: "Ask Clarus",
+      refresh: "Refresh",
       signOut: "Sign out",
       newEssay: "New essay",
       toStart: "Go to start",
@@ -426,6 +441,14 @@ const copy = {
       commentsLoadError: "Responses could not be loaded.",
       commentsDeleteError: "Deleting the response failed.",
       feedbackDeleteError: "Deleting feedback failed.",
+      clarusLogsTitle: "Clarus logs",
+      clarusLogsEmpty: "No Clarus conversations yet.",
+      clarusLogsLoadError: "Clarus logs could not be loaded.",
+      clarusLogsBackendMissing: "VITE_BACKEND_URL is missing.",
+      clarusLogsAuthError: "Admin token could not be retrieved.",
+      clarusQuestion: "Question",
+      clarusAnswer: "Answer",
+      clarusError: "Error",
       search: "Search title, slug, category",
       all: "All",
       loginTitle: "Admin login",
@@ -471,7 +494,7 @@ const copy = {
       aboutTitle: "About this site",
       about: [
         "I write anonymously so that thought is not fixed to a single identity. The essays are experiments: sometimes sharp, sometimes searching, always meant as an invitation to think further.",
-        "Clarus is not central in this frontend for now. The priority is a stronger reading experience, a more practical admin panel and a more stable basis for the next backend step.",
+        "Clarus is the reflective assistant attached to the essays. It uses no Qdrant database and no religious data source, but the essay text, project context and pre-written instructions to make questions more precise.",
         "Use the feedback page for notes, suggestions or bug reports. There is no working feedback e-mail address.",
       ],
       roadmapEyebrow: "Roadmap",
@@ -483,17 +506,18 @@ const copy = {
         "Make admin faster for writing, filtering and publishing",
         "Handle Firebase failures more clearly in the interface",
         "Add English versions for all public copy and essays",
+        "Reconnect Clarus without Qdrant and with transparent conversation logging",
       ],
       laterItems: [
-        "Reconnect Clarus when Qdrant and RAG are available again",
-        "Add a feedback page",
+        "Evaluate Clarus for style, accuracy and usefulness",
+        "Use feedback and Clarus logs for targeted improvement",
         "Further automate the publication flow",
       ],
       privacyEyebrow: "Privacy",
       privacyTitle: "Privacy & transparency",
       privacy: [
         "Responses and votes can be stored through Firebase. E-mail addresses attached to responses are hashed and are not shown publicly.",
-        "Clarus has temporarily been removed from the main flow. When the chat returns later, this page will state clearly which conversations are stored and how they are used.",
+        "Clarus conversations are logged on the backend to review errors, style and usefulness. Do not share personal or sensitive information in the chat.",
         "Questions or concerns can be sent through the feedback page.",
       ],
       notFoundTitle: "Page not found",
@@ -605,7 +629,7 @@ function useLanguage() {
   return [language, setLanguage];
 }
 
-function useEssays(language) {
+function useEssays(language, includeDrafts = false) {
   const t = copy[language].firebase;
   const [state, setState] = useState({
     essays: [],
@@ -625,14 +649,19 @@ function useEssays(language) {
       }
     }, 4500);
 
-    const qRef = query(collection(db, "essays"), orderBy("date", "desc"));
+    const qRef = includeDrafts
+      ? query(collection(db, "essays"), orderBy("date", "desc"))
+      : query(collection(db, "essays"), where("status", "==", "published"));
     const unsubscribe = onSnapshot(
       qRef,
       (snap) => {
         settled = true;
         window.clearTimeout(timeout);
+        const essays = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => String(b.date || "").localeCompare(String(a.date || "")));
         setState({
-          essays: snap.docs.map((d) => ({ id: d.id, ...d.data() })),
+          essays,
           loading: false,
           error: "",
         });
@@ -653,7 +682,7 @@ function useEssays(language) {
       window.clearTimeout(timeout);
       unsubscribe();
     };
-  }, [t.error, t.slow]);
+  }, [includeDrafts, t.error, t.slow]);
 
   return state;
 }
@@ -1021,6 +1050,7 @@ function EssayPage({ language }) {
   const [essay, setEssay] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [chatOpen, setChatOpen] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -1089,6 +1119,11 @@ function EssayPage({ language }) {
   }
 
   const localized = localizeEssay(essay, language);
+  const clarusEssay = {
+    ...essay,
+    title: localized.displayTitle,
+    body: localized.displayBody,
+  };
 
   if (!localized.hasRequestedLanguage) {
     return (
@@ -1111,7 +1146,8 @@ function EssayPage({ language }) {
   }
 
   return (
-    <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+    <>
+      <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <button
         onClick={() => navigate(-1)}
         className="mb-8 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/6 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-300/35 hover:text-white"
@@ -1141,7 +1177,23 @@ function EssayPage({ language }) {
       />
 
       <Comments articleId={essay.id} language={language} />
-    </article>
+      </article>
+
+      <button
+        type="button"
+        onClick={() => setChatOpen(true)}
+        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-md border border-sky-300/30 bg-sky-300 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_42px_rgba(14,165,233,0.26)] transition hover:bg-sky-200"
+      >
+        <Sparkles size={17} />
+        {t.actions.askClarus}
+      </button>
+
+      {chatOpen && (
+        <Suspense fallback={null}>
+          <ChatPanel essay={clarusEssay} language={language} onClose={() => setChatOpen(false)} />
+        </Suspense>
+      )}
+    </>
   );
 }
 
@@ -1681,9 +1733,114 @@ function AdminCommentsPanel({ language }) {
   );
 }
 
+function AdminClarusLogsPanel({ language }) {
+  const t = copy[language];
+  const [logs, setLogs] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [reloadKey, setReloadKey] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadLogs = async () => {
+      const backendUrl = import.meta.env.VITE_BACKEND_URL;
+      if (!backendUrl) {
+        setError(t.admin.clarusLogsBackendMissing);
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError("");
+        const currentUser = getAuth(app).currentUser;
+        const token = await currentUser?.getIdToken(true);
+        if (!token) throw new Error(t.admin.clarusLogsAuthError);
+
+        const res = await fetch(`${backendUrl}/admin/clarus/logs?limit=80`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data?.error || t.admin.clarusLogsLoadError);
+        if (!cancelled) setLogs(Array.isArray(data.logs) ? data.logs : []);
+      } catch (err) {
+        console.error("Clarus logs load failed:", err);
+        if (!cancelled) setError(err instanceof Error ? err.message : t.admin.clarusLogsLoadError);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+
+    loadLogs();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    reloadKey,
+    t.admin.clarusLogsAuthError,
+    t.admin.clarusLogsBackendMissing,
+    t.admin.clarusLogsLoadError,
+  ]);
+
+  return (
+    <section className="rounded-lg border border-white/10 bg-slate-950/52 p-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <ShieldCheck className="text-sky-200" size={18} />
+          <div>
+            <h2 className="text-lg font-semibold text-white">{t.admin.clarusLogsTitle}</h2>
+            <p className="text-sm text-slate-500">{logs.length} {t.admin.clarusLogsTitle.toLowerCase()}</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setReloadKey((value) => value + 1)}
+          className="grid h-9 w-9 place-items-center rounded-md border border-white/10 bg-white/6 text-slate-300 transition hover:border-sky-300/35 hover:text-white"
+          aria-label={t.actions.refresh}
+          title={t.actions.refresh}
+          disabled={loading}
+        >
+          <RefreshCcw size={15} />
+        </button>
+      </div>
+      {error && <p className="mb-3 rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">{error}</p>}
+      {loading && <p className="text-sm text-slate-400">{t.firebase.loading}</p>}
+      {!loading && logs.length === 0 && !error && <p className="text-sm text-slate-400">{t.admin.clarusLogsEmpty}</p>}
+      <div className="space-y-3">
+        {logs.map((entry) => (
+          <article key={entry.id} className="rounded-md border border-white/10 bg-white/5 p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
+              <span>{formatStoredDate(entry.timestamp, language)}</span>
+              <span className="rounded border border-white/10 px-2 py-1">{entry.model || "model unknown"}</span>
+            </div>
+            {(entry.essayTitle || entry.essayId) && (
+              <p className="mb-3 text-xs text-sky-100">{entry.essayTitle || entry.essayId}</p>
+            )}
+            <div className="space-y-3 text-sm leading-6">
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t.admin.clarusQuestion}</p>
+                <p className="mt-1 whitespace-pre-wrap text-slate-200">{entry.question}</p>
+              </div>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                  {entry.error ? t.admin.clarusError : t.admin.clarusAnswer}
+                </p>
+                <p className={entry.error ? "mt-1 whitespace-pre-wrap text-red-100" : "mt-1 whitespace-pre-wrap text-slate-300"}>
+                  {entry.error || entry.answer}
+                </p>
+              </div>
+            </div>
+          </article>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 function AdminPanel({ language, onSignOut }) {
   const t = copy[language];
-  const { essays, loading, error: syncError } = useEssays(language);
+  const { essays, loading, error: syncError } = useEssays(language, true);
   const [form, setForm] = useState(createEmptyEssay);
   const [editorLanguage, setEditorLanguage] = useState("nl");
   const [isEditing, setIsEditing] = useState(false);
@@ -2163,9 +2320,10 @@ function AdminPanel({ language, onSignOut }) {
         </form>
       </div>
 
-      <div className="mt-6 grid gap-5 lg:grid-cols-2">
+      <div className="mt-6 grid gap-5 xl:grid-cols-3">
         <AdminFeedbackInbox language={language} />
         <AdminCommentsPanel language={language} />
+        <AdminClarusLogsPanel language={language} />
       </div>
     </section>
   );
