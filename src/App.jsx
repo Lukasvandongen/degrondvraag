@@ -61,6 +61,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
 } from "firebase/auth";
+import { getDownloadURL, getStorage, ref as storageRef, uploadBytes } from "firebase/storage";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -73,6 +74,7 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const storage = getStorage(app);
 
 const LANGUAGES = {
   nl: "Nederlands",
@@ -260,6 +262,10 @@ const copy = {
       bodyLabel: "Body",
       categoriesLabel: "Categorieen",
       preview: "Preview",
+      textStats: "Tekststatistiek",
+      wordCount: (amount) => `${amount} woorden`,
+      readingTime: (minutes) => `${minutes} min lezen`,
+      imageUploadError: "Afbeelding uploaden is mislukt. Controleer Firebase Storage.",
       englishHelp: "Vul de Engelse versie met dezelfde academische toon. Gebruik geen em-dashes.",
       dutchHelp: "De Nederlandse versie blijft de standaardversie van het essay.",
       titlePlaceholder: "Titel van het essay",
@@ -478,6 +484,10 @@ const copy = {
       bodyLabel: "Body",
       categoriesLabel: "Categories",
       preview: "Preview",
+      textStats: "Text stats",
+      wordCount: (amount) => `${amount} words`,
+      readingTime: (minutes) => `${minutes} min read`,
+      imageUploadError: "Image upload failed. Check Firebase Storage.",
       englishHelp: "Write the English version in the same academic register. Use no em-dashes.",
       dutchHelp: "The Dutch version remains the default version of the essay.",
       titlePlaceholder: "Essay title",
@@ -557,6 +567,20 @@ const createEmptyEssay = () => ({
 });
 
 const sanitizeHTML = (html = "") => DOMPurify.sanitize(html);
+
+const textFromHTML = (html = "") => {
+  const container = document.createElement("div");
+  container.innerHTML = sanitizeHTML(html);
+  return container.textContent || "";
+};
+
+const getTextStats = (html = "") => {
+  const words = textFromHTML(html).trim().split(/\s+/).filter(Boolean).length;
+  return {
+    words,
+    minutes: Math.max(1, Math.ceil(words / 220)),
+  };
+};
 
 const slugify = (str = "") =>
   str
@@ -1609,6 +1633,13 @@ const formatStoredDate = (value, language) => {
   }).format(date);
 };
 
+const cleanStorageName = (value = "image") =>
+  value
+    .toLowerCase()
+    .replace(/[^a-z0-9.]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 120) || "image";
+
 function AdminFeedbackInbox({ language }) {
   const t = copy[language];
   const [items, setItems] = useState([]);
@@ -1918,6 +1949,24 @@ function AdminPanel({ language, onSignOut }) {
 
   const currentText = editorLanguage === "en" ? form.translations.en : form;
   const editorHelp = editorLanguage === "en" ? t.admin.englishHelp : t.admin.dutchHelp;
+  const editorStats = useMemo(() => getTextStats(currentText.body), [currentText.body]);
+
+  const uploadEssayImage = async (file) => {
+    const essayId = slugify(form.id || form.title || "draft");
+    if (!essayId) throw new Error(t.admin.imageUploadError);
+    const extension = file.name.includes(".") ? file.name.split(".").pop() : "jpg";
+    const safeName = cleanStorageName(file.name || `image.${extension}`);
+    const path = `essays/${essayId}/${Date.now()}-${safeName}`;
+    const imageRef = storageRef(storage, path);
+    await uploadBytes(imageRef, file, {
+      contentType: file.type || "image/jpeg",
+      customMetadata: {
+        essayId,
+        language: editorLanguage,
+      },
+    });
+    return getDownloadURL(imageRef);
+  };
 
   const setLocalizedField = (field, value) => {
     if (editorLanguage === "en") {
@@ -2314,8 +2363,21 @@ function AdminPanel({ language, onSignOut }) {
           </div>
 
           <div className="mt-6">
-            <p className="mb-2 text-sm font-medium text-slate-300">{t.admin.bodyLabel}</p>
-            <TipTapEditor value={currentText.body} onChange={(val) => setLocalizedField("body", val)} />
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-300">{t.admin.bodyLabel}</p>
+              <div className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs text-slate-400">
+                <FileText size={13} />
+                <span>{t.admin.textStats}</span>
+                <span>{t.admin.wordCount(editorStats.words)}</span>
+                <span>{t.admin.readingTime(editorStats.minutes)}</span>
+              </div>
+            </div>
+            <TipTapEditor
+              value={currentText.body}
+              onChange={(val) => setLocalizedField("body", val)}
+              language={language}
+              onUploadImage={uploadEssayImage}
+            />
           </div>
 
           <div className="mt-6 rounded-lg border border-white/10 bg-slate-950/65 p-4">

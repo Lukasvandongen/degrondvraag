@@ -11,6 +11,7 @@
     "tailwind:init": "tailwindcss init -p"
   },
   "dependencies": {
+    "@tiptap/extension-image": "^2.27.2",
     "@tiptap/extension-link": "^2.24.2",
     "@tiptap/extension-placeholder": "^2.24.2",
     "@tiptap/extension-underline": "^2.25.0",
