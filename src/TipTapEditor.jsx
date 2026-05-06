@@ -202,6 +202,7 @@ function escapeHTML(value = "") {
 export default function TipTapEditor({ value, onChange, language = "nl", onUploadImage }) {
   const t = editorCopy[language] || editorCopy.nl;
   const fileInputRef = useRef(null);
+  const lastEmittedValue = useRef(value || "");
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [selectedImage, setSelectedImage] = useState(null);
@@ -210,7 +211,9 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
     extensions: [StarterKit, Underline, EditableImage.configure({ inline: false, allowBase64: false })],
     content: value || "",
     onUpdate({ editor: activeEditor }) {
-      onChange(activeEditor.getHTML());
+      const html = activeEditor.getHTML();
+      lastEmittedValue.current = html;
+      onChange(html);
       setSelectedImage(activeEditor.isActive("image") ? activeEditor.getAttributes("image") : null);
     },
     onSelectionUpdate({ editor: activeEditor }) {
@@ -227,8 +230,10 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
   useEffect(() => {
     if (!editor) return;
     const nextValue = value || "";
+    if (nextValue === lastEmittedValue.current) return;
     if (editor.getHTML() !== nextValue) {
       editor.commands.setContent(nextValue, false);
+      lastEmittedValue.current = nextValue;
     }
   }, [editor, value]);
 
@@ -236,15 +241,18 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
     editor
       ?.chain()
       .focus()
-      .setImage({
-        src,
-        alt: name,
-        title: "",
-        width: "100%",
-        height: "auto",
-        align: "center",
-        radius: "8px",
-        objectFit: "cover",
+      .insertContent({
+        type: "image",
+        attrs: {
+          src,
+          alt: name,
+          title: "",
+          width: "100%",
+          height: "auto",
+          align: "center",
+          radius: "8px",
+          objectFit: "cover",
+        },
       })
       .run();
   };
@@ -280,7 +288,13 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
   const insertCaption = () => {
     const caption = selectedImage?.title?.trim();
     if (!caption) return;
-    editor?.chain().focus().insertContent(`<p><em>${escapeHTML(caption)}</em></p>`).run();
+    const insertAt = editor?.state.selection.to;
+    editor
+      ?.chain()
+      .focus()
+      .setTextSelection(insertAt)
+      .insertContent(`<p><em>${escapeHTML(caption)}</em></p>`)
+      .run();
   };
 
   if (!editor) {
