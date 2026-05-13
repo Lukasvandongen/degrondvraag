@@ -177,10 +177,14 @@ const copy = {
       progress: (percent) => `${percent}% gelezen`,
       outline: "Opbouw",
       featured: "Uitgelicht",
-      publishedCount: "Gepubliceerd",
+      publishedCount: "In archief",
       showingCount: "In beeld",
-      subjectCount: "Onderwerpen",
+      subjectCount: "Themalijnen",
       latestStart: "Nieuwste startpunt",
+      clarusShortcutTitle: "Twijfel waar te beginnen?",
+      clarusShortcutBody: "Laat Clarus je vraag lezen als route door het archief.",
+      clarusShortcutAction: "Vraag Clarus om een ingang",
+      clarusShortcutPrompt: "Ik weet nog niet waar ik moet beginnen. Kun je mij helpen een passend essay te kiezen?",
       emptyTitle: "Geen essays gevonden",
       emptyBody: "Pas je filters aan of publiceer een nieuw essay in het adminpaneel.",
       untitled: "Een essay zonder titel.",
@@ -443,10 +447,14 @@ const copy = {
       progress: (percent) => `${percent}% read`,
       outline: "Structure",
       featured: "Featured",
-      publishedCount: "Published",
+      publishedCount: "In archive",
       showingCount: "Showing",
-      subjectCount: "Subjects",
+      subjectCount: "Theme lines",
       latestStart: "Latest starting point",
+      clarusShortcutTitle: "Unsure where to begin?",
+      clarusShortcutBody: "Let Clarus read your question as a route through the archive.",
+      clarusShortcutAction: "Ask Clarus for an entry point",
+      clarusShortcutPrompt: "I am not sure where to begin. Can you help me choose a fitting essay?",
       emptyTitle: "No essays found",
       emptyBody: "Adjust your filters or publish a new essay in the admin panel.",
       untitled: "An untitled essay.",
@@ -1309,7 +1317,13 @@ function EssaysOverviewPage({ language }) {
           const needle = search.trim().toLowerCase();
           if (!needle) return true;
           const localized = localizeEssay(essay, language);
-          return [localized.displayTitle, localized.displayExcerpt, essay.id, ...(essay.categories || [])]
+          return [
+            localized.displayTitle,
+            localized.displayExcerpt,
+            textFromHTML(localized.displayBody),
+            essay.id,
+            ...(essay.categories || []),
+          ]
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(needle));
         }),
@@ -1328,6 +1342,7 @@ function EssaysOverviewPage({ language }) {
     [allPublishedEssays, language]
   );
   const activeSubjectCount = categoryCounts.filter((category) => category.count > 0).length;
+  const clarusPromptUrl = `/clarus?prompt=${encodeURIComponent(t.essays.clarusShortcutPrompt)}`;
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
@@ -1362,6 +1377,20 @@ function EssaysOverviewPage({ language }) {
                 placeholder={t.essays.search}
               />
             </label>
+
+            <Link
+              to={clarusPromptUrl}
+              className="clarus-prompt-card mt-5 flex max-w-2xl items-center justify-between gap-4 rounded-md border border-sky-300/18 bg-sky-300/8 px-4 py-3 text-left transition hover:border-sky-300/38 hover:bg-sky-300/12"
+            >
+              <span>
+                <span className="block text-sm font-semibold text-sky-100">{t.essays.clarusShortcutTitle}</span>
+                <span className="mt-1 block text-sm leading-6 text-slate-300">{t.essays.clarusShortcutBody}</span>
+              </span>
+              <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-sky-100">
+                {t.essays.clarusShortcutAction}
+                <Sparkles size={16} />
+              </span>
+            </Link>
 
             <div className="mt-5 flex flex-wrap gap-2">
               <button
@@ -2001,9 +2030,14 @@ function FeedbackPage({ language }) {
 
 function ClarusPage({ language }) {
   const t = copy[language];
+  const location = useLocation();
   const { essays, loading, error } = useEssays(language);
   const [chatOpen, setChatOpen] = useState(false);
   const [starterQuestion, setStarterQuestion] = useState("");
+  const urlPrompt = useMemo(
+    () => new URLSearchParams(location.search).get("prompt") || "",
+    [location.search]
+  );
   const corpus = useMemo(() => buildClarusCorpus(essays, language), [essays, language]);
   const corpusEssay = useMemo(
     () => ({
@@ -2023,6 +2057,12 @@ function ClarusPage({ language }) {
     setStarterQuestion(prompt);
     setChatOpen(true);
   };
+
+  useEffect(() => {
+    if (!urlPrompt || loading || !corpus.length) return;
+    setStarterQuestion(urlPrompt);
+    setChatOpen(true);
+  }, [corpus.length, loading, urlPrompt]);
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
