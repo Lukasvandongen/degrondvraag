@@ -15,6 +15,8 @@ import {
   ArrowRight,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
+  ChevronRight,
   FileText,
   Filter,
   Languages,
@@ -110,6 +112,7 @@ const copy = {
       essays: "Essays",
       about: "Over",
       feedback: "Feedback",
+      clarus: "Clarus",
       roadmap: "Roadmap",
       admin: "Admin",
     },
@@ -183,6 +186,31 @@ const copy = {
       notTranslatedTitle: "Engelse versie nog niet beschikbaar",
       notTranslatedBody: "Dit essay heeft nog geen Engelse versie in Firebase. Voeg de Engelse titel, samenvatting en body toe in het adminpaneel.",
     },
+    clarus: {
+      eyebrow: "Clarus",
+      title: "Chat met Clarus",
+      intro:
+        "Vraag Clarus welk essay past bij een begrip, bezwaar of grondvraag. Clarus gebruikt alleen het publieke essayarchief en blijft binnen de thematische grenzen van de site.",
+      openChat: "Open Clarus",
+      corpusReady: (amount) => `${amount} essay(s) beschikbaar`,
+      noHistory:
+        "Geen accountkoppeling of persoonlijke chatgeschiedenis. Gesprekken kunnen wel technisch worden gelogd om Clarus te verbeteren.",
+      promptTitle: "Probeer een scherpe ingang",
+      examples: [
+        "Ik wil vrijheid beter begrijpen. Waar begin ik?",
+        "Welk essay past bij twijfel over geloof?",
+        "Ik zoek een tekst over verantwoordelijkheid en techniek.",
+      ],
+      emptyTitle: "Clarus heeft nog geen essayarchief",
+      emptyBody: "Publiceer eerst essays, daarna kan Clarus lezers door het archief leiden.",
+      scopeTitle: "Geen algemene chatbot",
+      scopeItems: [
+        "Clarus raadt essays aan en verduidelijkt begrippen uit het archief.",
+        "Clarus weigert alledaagse taken zoals code, recepten, reizen of marketingtekst.",
+        "Clarus hoort kort, precies en met duidelijke grenzen te antwoorden.",
+      ],
+      archiveTitle: "Beschikbaar archief",
+    },
     firebase: {
       slow: "Firebase reageert traag of niet. De pagina blijft bruikbaar, maar live data ontbreekt.",
       error: "Firebase is tijdelijk niet bereikbaar. Probeer het zo opnieuw.",
@@ -237,6 +265,7 @@ const copy = {
       commentsDeleteError: "Reactie verwijderen is mislukt.",
       feedbackDeleteError: "Feedback verwijderen is mislukt.",
       clarusLogsTitle: "Clarus logs",
+      clarusLogsSubtitle: "Zoek, filter en vouw gesprekken open zonder door een ruwe lijst te hoeven scrollen.",
       clarusLogsEmpty: "Nog geen Clarus gesprekken.",
       clarusLogsLoadError: "Clarus logs konden niet worden geladen.",
       clarusLogsBackendMissing: "VITE_BACKEND_URL ontbreekt.",
@@ -244,6 +273,15 @@ const copy = {
       clarusQuestion: "Vraag",
       clarusAnswer: "Antwoord",
       clarusError: "Fout",
+      clarusSearch: "Zoek in vraag, antwoord, essay of model",
+      clarusStatusAll: "Alle statussen",
+      clarusContextAll: "Alle contexten",
+      clarusCompleted: "Afgerond",
+      clarusErrored: "Fouten",
+      clarusRefused: "Geweigerd",
+      clarusStarted: "Gestart",
+      clarusRecentTitle: "Laatste activiteit",
+      clarusNoMatches: "Geen logs passen bij deze filters.",
       search: "Zoek titel, slug, categorie",
       all: "Alles",
       loginTitle: "Admin login",
@@ -335,6 +373,7 @@ const copy = {
       essays: "Essays",
       about: "About",
       feedback: "Feedback",
+      clarus: "Clarus",
       roadmap: "Roadmap",
       admin: "Admin",
     },
@@ -408,6 +447,31 @@ const copy = {
       notTranslatedTitle: "English version not available yet",
       notTranslatedBody: "This essay does not yet have an English version in Firebase. Add the English title, summary and body in the admin panel.",
     },
+    clarus: {
+      eyebrow: "Clarus",
+      title: "Chat With Clarus",
+      intro:
+        "Ask Clarus which essay fits a concept, objection or ground question. Clarus uses only the public essay archive and stays within the site's intellectual scope.",
+      openChat: "Open Clarus",
+      corpusReady: (amount) => `${amount} essay(s) available`,
+      noHistory:
+        "No account connection or personal chat history yet. Conversations may still be technically logged to improve Clarus.",
+      promptTitle: "Try a precise entry point",
+      examples: [
+        "I want to understand freedom better. Where should I begin?",
+        "Which essay fits doubt about faith?",
+        "I am looking for a text on responsibility and technology.",
+      ],
+      emptyTitle: "Clarus has no essay archive yet",
+      emptyBody: "Publish essays first, then Clarus can guide readers through the archive.",
+      scopeTitle: "Not a general chatbot",
+      scopeItems: [
+        "Clarus recommends essays and clarifies concepts from the archive.",
+        "Clarus refuses everyday tasks such as code, recipes, travel or marketing copy.",
+        "Clarus should answer briefly, precisely and with explicit boundaries.",
+      ],
+      archiveTitle: "Available archive",
+    },
     firebase: {
       slow: "Firebase is slow or unavailable. The page remains usable, but live data is missing.",
       error: "Firebase is temporarily unavailable. Please try again shortly.",
@@ -462,6 +526,7 @@ const copy = {
       commentsDeleteError: "Deleting the response failed.",
       feedbackDeleteError: "Deleting feedback failed.",
       clarusLogsTitle: "Clarus logs",
+      clarusLogsSubtitle: "Search, filter and expand conversations without scrolling through a raw feed.",
       clarusLogsEmpty: "No Clarus conversations yet.",
       clarusLogsLoadError: "Clarus logs could not be loaded.",
       clarusLogsBackendMissing: "VITE_BACKEND_URL is missing.",
@@ -469,6 +534,15 @@ const copy = {
       clarusQuestion: "Question",
       clarusAnswer: "Answer",
       clarusError: "Error",
+      clarusSearch: "Search question, answer, essay or model",
+      clarusStatusAll: "All statuses",
+      clarusContextAll: "All contexts",
+      clarusCompleted: "Completed",
+      clarusErrored: "Errors",
+      clarusRefused: "Refused",
+      clarusStarted: "Started",
+      clarusRecentTitle: "Latest activity",
+      clarusNoMatches: "No logs match these filters.",
       search: "Search title, slug, category",
       all: "All",
       loginTitle: "Admin login",
@@ -738,6 +812,25 @@ const localizeEssay = (essay, language) => {
   };
 };
 
+const buildClarusCorpus = (essays, language) =>
+  essays
+    .filter((essay) => essay.status === "published")
+    .map((essay) => {
+      const localized = localizeEssay(essay, language);
+      if (!localized.hasRequestedLanguage || !localized.displayBody) return null;
+
+      return {
+        id: essay.id,
+        title: localized.displayTitle,
+        excerpt: localized.displayExcerpt,
+        categories: (essay.categories || []).map((category) => categoryLabels[language][category] || category),
+        date: essay.date || "",
+        path: `/essays/${essay.id}`,
+        body: textFromHTML(localized.displayBody).slice(0, 2200),
+      };
+    })
+    .filter(Boolean);
+
 const formatDate = (value, language) => {
   if (!value) return language === "en" ? "No date" : "Geen datum";
   try {
@@ -933,6 +1026,9 @@ function Header({ language, setLanguage, admin, onSignOut }) {
           </NavLink>
           <NavLink to="/essays" className={navLinkClass}>
             {t.nav.essays}
+          </NavLink>
+          <NavLink to="/clarus" className={navLinkClass}>
+            {t.nav.clarus}
           </NavLink>
           <NavLink to="/over" className={navLinkClass}>
             {t.nav.about}
@@ -1788,6 +1884,140 @@ function FeedbackPage({ language }) {
   );
 }
 
+function ClarusPage({ language }) {
+  const t = copy[language];
+  const { essays, loading, error } = useEssays(language);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [starterQuestion, setStarterQuestion] = useState("");
+  const corpus = useMemo(() => buildClarusCorpus(essays, language), [essays, language]);
+  const corpusEssay = useMemo(
+    () => ({
+      id: "degrondvraag-archive",
+      title: language === "en" ? "degrondvraag essay archive" : "het essayarchief van degrondvraag",
+      body: corpus.map((essay) => `${essay.title}. ${essay.excerpt || ""}`).join("\n\n") || "degrondvraag",
+    }),
+    [corpus, language]
+  );
+
+  usePageMeta(language, {
+    title: t.clarus.title,
+    description: t.clarus.intro,
+  });
+
+  const openWithPrompt = (prompt) => {
+    setStarterQuestion(prompt);
+    setChatOpen(true);
+  };
+
+  return (
+    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:items-start">
+        <div>
+          <p className="text-sm font-medium text-sky-200">{t.clarus.eyebrow}</p>
+          <h1 className="mt-2 text-4xl font-semibold text-white sm:text-5xl">{t.clarus.title}</h1>
+          <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">{t.clarus.intro}</p>
+
+          <div className="mt-8 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={() => openWithPrompt("")}
+              disabled={!corpus.length}
+              className="inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <Sparkles size={17} />
+              {t.clarus.openChat}
+            </button>
+            <span className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/6 px-3 py-2 text-sm text-slate-300">
+              <FileText size={16} />
+              {loading ? t.firebase.loading : t.clarus.corpusReady(corpus.length)}
+            </span>
+          </div>
+
+          <div className="mt-5 inline-flex max-w-2xl items-start gap-2 rounded-md border border-white/10 bg-white/6 px-3 py-2 text-sm leading-6 text-slate-300">
+            <Lock className="mt-1 shrink-0 text-sky-200" size={15} />
+            <span>{t.clarus.noHistory}</span>
+          </div>
+
+          {error && !loading && (
+            <p className="mt-5 rounded-md border border-amber-300/20 bg-amber-300/10 px-3 py-2 text-sm text-amber-100">
+              {error}
+            </p>
+          )}
+
+          {!loading && !error && corpus.length === 0 && (
+            <div className="mt-8">
+              <EmptyState title={t.clarus.emptyTitle} body={t.clarus.emptyBody} />
+            </div>
+          )}
+
+          {corpus.length > 0 && (
+            <div className="mt-8">
+              <h2 className="text-lg font-semibold text-white">{t.clarus.promptTitle}</h2>
+              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                {t.clarus.examples.map((example) => (
+                  <button
+                    key={example}
+                    type="button"
+                    onClick={() => openWithPrompt(example)}
+                    className="min-h-28 rounded-lg border border-white/10 bg-[#071126]/70 p-4 text-left text-sm leading-6 text-slate-200 transition hover:border-sky-300/35 hover:bg-sky-300/8"
+                  >
+                    {example}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        <aside className="rounded-lg border border-white/10 bg-slate-950/52 p-5">
+          <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+            <ShieldCheck size={18} />
+            {t.clarus.scopeTitle}
+          </h2>
+          <ul className="mt-5 space-y-4">
+            {t.clarus.scopeItems.map((item) => (
+              <li key={item} className="flex gap-3 text-sm leading-6 text-slate-300">
+                <CheckCircle2 className="mt-1 shrink-0 text-sky-200" size={16} />
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+
+          {corpus.length > 0 && (
+            <div className="mt-6 border-t border-white/10 pt-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t.clarus.archiveTitle}</p>
+              <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
+                {corpus.slice(0, 8).map((essay) => (
+                  <Link
+                    key={essay.id}
+                    to={essay.path}
+                    className="block rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white"
+                  >
+                    {essay.title}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+        </aside>
+      </div>
+
+      {chatOpen && (
+        <Suspense fallback={null}>
+          <ChatPanel
+            essay={corpusEssay}
+            essayCorpus={corpus}
+            contextType="corpus"
+            initialInput={starterQuestion}
+            language={language}
+            onClose={() => setChatOpen(false)}
+          />
+        </Suspense>
+      )}
+    </section>
+  );
+}
+
 function AdminLogin({ language, onLogin }) {
   const t = copy[language].admin;
   usePageMeta(language, {
@@ -1867,6 +2097,23 @@ const formatStoredDate = (value, language) => {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+  }).format(date);
+};
+
+const getStoredDate = (value) => {
+  if (!value) return null;
+  const date = typeof value.toDate === "function" ? value.toDate() : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatLogDay = (value, language) => {
+  const date = getStoredDate(value);
+  if (!date) return language === "en" ? "Unknown date" : "Onbekende datum";
+  return new Intl.DateTimeFormat(language === "en" ? "en-GB" : "nl-NL", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
   }).format(date);
 };
 
@@ -2020,6 +2267,10 @@ function AdminClarusLogsPanel({ language }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [reloadKey, setReloadKey] = useState(0);
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [contextFilter, setContextFilter] = useState("all");
+  const [expandedId, setExpandedId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -2044,7 +2295,11 @@ function AdminClarusLogsPanel({ language }) {
         });
         const data = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(data?.error || t.admin.clarusLogsLoadError);
-        if (!cancelled) setLogs(Array.isArray(data.logs) ? data.logs : []);
+        if (!cancelled) {
+          const entries = Array.isArray(data.logs) ? data.logs : [];
+          setLogs(entries);
+          setExpandedId(entries[0]?.id || "");
+        }
       } catch (err) {
         console.error("Clarus logs load failed:", err);
         if (!cancelled) setError(err instanceof Error ? err.message : t.admin.clarusLogsLoadError);
@@ -2064,14 +2319,73 @@ function AdminClarusLogsPanel({ language }) {
     t.admin.clarusLogsLoadError,
   ]);
 
+  const logStats = useMemo(
+    () => ({
+      total: logs.length,
+      completed: logs.filter((entry) => entry.status === "completed").length,
+      refused: logs.filter((entry) => String(entry.status || "").includes("refused")).length,
+      errors: logs.filter((entry) => entry.error || entry.status === "error").length,
+    }),
+    [logs]
+  );
+
+  const contextOptions = useMemo(() => {
+    const contexts = Array.from(new Set(logs.map((entry) => entry.contextType || "essay")));
+    return ["all", ...contexts.sort()];
+  }, [logs]);
+
+  const filteredLogs = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    return logs.filter((entry) => {
+      const status = entry.status || (entry.error ? "error" : "completed");
+      const statusMatch =
+        statusFilter === "all" ||
+        (statusFilter === "error" && (entry.error || status === "error")) ||
+        (statusFilter === "refused" && String(status).includes("refused")) ||
+        status === statusFilter;
+      const contextMatch = contextFilter === "all" || (entry.contextType || "essay") === contextFilter;
+      const haystack = [
+        entry.question,
+        entry.answer,
+        entry.error,
+        entry.essayTitle,
+        entry.essayId,
+        entry.model,
+        entry.contextType,
+        entry.status,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return statusMatch && contextMatch && (!needle || haystack.includes(needle));
+    });
+  }, [contextFilter, logs, search, statusFilter]);
+
+  const groupedLogs = useMemo(() => {
+    const groups = new Map();
+    for (const entry of filteredLogs) {
+      const key = formatLogDay(entry.timestamp, language);
+      groups.set(key, [...(groups.get(key) || []), entry]);
+    }
+    return Array.from(groups.entries());
+  }, [filteredLogs, language]);
+
+  const statusOptions = [
+    ["all", t.admin.clarusStatusAll],
+    ["completed", t.admin.clarusCompleted],
+    ["refused", t.admin.clarusRefused],
+    ["error", t.admin.clarusErrored],
+    ["started", t.admin.clarusStarted],
+  ];
+
   return (
-    <section className="rounded-lg border border-white/10 bg-slate-950/52 p-4">
-      <div className="mb-4 flex items-center justify-between gap-3">
+    <section className="rounded-lg border border-white/10 bg-slate-950/52 p-4 xl:col-span-3">
+      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-center gap-3">
           <ShieldCheck className="text-sky-200" size={18} />
           <div>
             <h2 className="text-lg font-semibold text-white">{t.admin.clarusLogsTitle}</h2>
-            <p className="text-sm text-slate-500">{logs.length} {t.admin.clarusLogsTitle.toLowerCase()}</p>
+            <p className="text-sm text-slate-500">{t.admin.clarusLogsSubtitle}</p>
           </div>
         </div>
         <button
@@ -2085,34 +2399,128 @@ function AdminClarusLogsPanel({ language }) {
           <RefreshCcw size={15} />
         </button>
       </div>
+
+      <div className="mb-4 grid gap-3 md:grid-cols-4">
+        <AdminStat label={t.admin.total} value={logStats.total} />
+        <AdminStat label={t.admin.clarusCompleted} value={logStats.completed} tone="green" />
+        <AdminStat label={t.admin.clarusRefused} value={logStats.refused} tone="amber" />
+        <AdminStat label={t.admin.clarusErrored} value={logStats.errors} tone="red" />
+      </div>
+
+      <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(0,1fr)_220px_220px]">
+        <label className="relative block">
+          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={17} />
+          <input
+            className="field pl-10"
+            placeholder={t.admin.clarusSearch}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+        <select className="field" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+          {statusOptions.map(([value, label]) => (
+            <option key={value} value={value}>
+              {label}
+            </option>
+          ))}
+        </select>
+        <select className="field" value={contextFilter} onChange={(event) => setContextFilter(event.target.value)}>
+          <option value="all">{t.admin.clarusContextAll}</option>
+          {contextOptions
+            .filter((value) => value !== "all")
+            .map((value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ))}
+        </select>
+      </div>
+
       {error && <p className="mb-3 rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">{error}</p>}
       {loading && <p className="text-sm text-slate-400">{t.firebase.loading}</p>}
       {!loading && logs.length === 0 && !error && <p className="text-sm text-slate-400">{t.admin.clarusLogsEmpty}</p>}
-      <div className="space-y-3">
-        {logs.map((entry) => (
-          <article key={entry.id} className="rounded-md border border-white/10 bg-white/5 p-4">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs text-slate-500">
-              <span>{formatStoredDate(entry.timestamp, language)}</span>
-              <span className="rounded border border-white/10 px-2 py-1">{entry.model || "model unknown"}</span>
+      {!loading && logs.length > 0 && filteredLogs.length === 0 && (
+        <p className="rounded-md border border-white/10 bg-white/5 p-4 text-sm text-slate-400">{t.admin.clarusNoMatches}</p>
+      )}
+      <div className="space-y-4">
+        {groupedLogs.map(([day, entries]) => (
+          <section key={day} className="rounded-md border border-white/10 bg-white/4 p-3">
+            <div className="mb-3 flex items-center justify-between gap-3">
+              <h3 className="text-sm font-semibold text-slate-200">{day}</h3>
+              <span className="rounded border border-white/10 px-2 py-1 text-xs text-slate-500">
+                {entries.length}
+              </span>
             </div>
-            {(entry.essayTitle || entry.essayId) && (
-              <p className="mb-3 text-xs text-sky-100">{entry.essayTitle || entry.essayId}</p>
-            )}
-            <div className="space-y-3 text-sm leading-6">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{t.admin.clarusQuestion}</p>
-                <p className="mt-1 whitespace-pre-wrap text-slate-200">{entry.question}</p>
-              </div>
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-                  {entry.error ? t.admin.clarusError : t.admin.clarusAnswer}
-                </p>
-                <p className={entry.error ? "mt-1 whitespace-pre-wrap text-red-100" : "mt-1 whitespace-pre-wrap text-slate-300"}>
-                  {entry.error || entry.answer}
-                </p>
-              </div>
+            <div className="space-y-2">
+              {entries.map((entry) => {
+                const open = expandedId === entry.id;
+                const status = entry.status || (entry.error ? "error" : "completed");
+                const statusTone = entry.error || status === "error"
+                  ? "border-red-300/25 bg-red-300/10 text-red-100"
+                  : String(status).includes("refused")
+                    ? "border-amber-300/25 bg-amber-300/10 text-amber-100"
+                    : "border-emerald-300/25 bg-emerald-300/10 text-emerald-100";
+
+                return (
+                  <article key={entry.id} className="rounded-md border border-white/10 bg-slate-950/55">
+                    <button
+                      type="button"
+                      onClick={() => setExpandedId(open ? "" : entry.id)}
+                      className="flex w-full items-start gap-3 p-3 text-left"
+                    >
+                      <span className="mt-0.5 text-slate-500">
+                        {open ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="mb-2 flex flex-wrap items-center gap-2 text-xs">
+                          <span className={cx("rounded border px-2 py-1", statusTone)}>{status}</span>
+                          <span className="rounded border border-white/10 px-2 py-1 text-slate-500">
+                            {entry.contextType || "essay"}
+                          </span>
+                          <span className="text-slate-500">{formatStoredDate(entry.timestamp, language)}</span>
+                          <span className="text-slate-500">{entry.model || "model unknown"}</span>
+                        </div>
+                        <p className="line-clamp-2 text-sm font-medium leading-6 text-slate-100">
+                          {entry.question || t.admin.clarusQuestion}
+                        </p>
+                        {(entry.essayTitle || entry.essayId) && (
+                          <p className="mt-1 truncate text-xs text-sky-100">{entry.essayTitle || entry.essayId}</p>
+                        )}
+                      </div>
+                    </button>
+
+                    {open && (
+                      <div className="border-t border-white/10 p-4">
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                              {t.admin.clarusQuestion}
+                            </p>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-200">{entry.question}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                              {entry.error ? t.admin.clarusError : t.admin.clarusAnswer}
+                            </p>
+                            <p className={entry.error ? "mt-2 whitespace-pre-wrap text-sm leading-6 text-red-100" : "mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-300"}>
+                              {entry.error || entry.answer || ""}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2 text-xs text-slate-500">
+                          <span className="rounded border border-white/10 px-2 py-1">id: {entry.id}</span>
+                          {entry.corpusSize !== undefined && (
+                            <span className="rounded border border-white/10 px-2 py-1">corpus: {entry.corpusSize}</span>
+                          )}
+                          {entry.essayId && <span className="rounded border border-white/10 px-2 py-1">{entry.essayId}</span>}
+                        </div>
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
             </div>
-          </article>
+          </section>
         ))}
       </div>
     </section>
@@ -2651,6 +3059,8 @@ function AdminStat({ label, value, tone = "blue" }) {
       ? "text-emerald-100 border-emerald-300/20 bg-emerald-300/8"
       : tone === "amber"
         ? "text-amber-100 border-amber-300/20 bg-amber-300/8"
+        : tone === "red"
+          ? "text-red-100 border-red-300/20 bg-red-300/8"
         : "text-sky-100 border-sky-300/20 bg-sky-300/8";
 
   return (
@@ -2788,6 +3198,9 @@ function Footer({ language }) {
           <Link to="/feedback" className="hover:text-slate-200">
             {t.feedback}
           </Link>
+          <Link to="/clarus" className="hover:text-slate-200">
+            {t.clarus}
+          </Link>
         </div>
       </div>
     </footer>
@@ -2844,6 +3257,7 @@ export default function App() {
             <Route path="/essays/:id" element={<EssayPage language={language} />} />
             <Route path="/over" element={<AboutPage language={language} />} />
             <Route path="/feedback" element={<FeedbackPage language={language} />} />
+            <Route path="/clarus" element={<ClarusPage language={language} />} />
             <Route path="/roadmap" element={<RoadmapPage language={language} />} />
             <Route path="/privacy" element={<PrivacyPage language={language} />} />
             <Route

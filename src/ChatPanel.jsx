@@ -16,6 +16,7 @@ const copy = {
     close: "Sluiten",
     send: "Verstuur",
     placeholder: "Stel een vraag over dit essay...",
+    corpusPlaceholder: "Vraag welk essay past bij jouw vraag...",
     loading: "Clarus formuleert een antwoord.",
     queued:
       "Je vraag staat klaar. Als Render de backend wakker moet maken, kan dit ongeveer 50 seconden duren. Daarna verschijnt het antwoord hier woord voor woord.",
@@ -23,12 +24,17 @@ const copy = {
     emptyAnswer: "Clarus gaf geen bruikbaar antwoord terug.",
     intro: (title) =>
       `Ik ben Clarus. Stel een precieze vraag over "${title}", een begrip, een argument of een bezwaar.`,
+    corpusIntro:
+      "Ik ben Clarus. Beschrijf wat je wilt begrijpen, dan wijs ik je naar passende essays uit het archief en verduidelijk ik de begrippen.",
     notice:
       "Gesprekken worden gelogd om fouten, stijl en bruikbaarheid te beoordelen. Deel geen persoonlijke of gevoelige informatie.",
+    corpusNotice:
+      "Clarus gebruikt het publieke essayarchief als begrensde context. Het is geen algemene chatbot en weigert alledaagse taken.",
     aboutTitle: "Wat Clarus is",
     aboutBody: [
       "Clarus is de reflectieve assistent van degrondvraag.com. De naam verwijst naar helderheid.",
-      "Het systeem is geen religieuze autoriteit en geen RAG-database. Clarus gebruikt de essaytekst, de gesprekscontext en vooraf geschreven instructies om vragen te verhelderen.",
+      "Het systeem is geen religieuze autoriteit en geen RAG-database. Clarus gebruikt de essaytekst, het publieke essayarchief, de gesprekscontext en vooraf geschreven instructies om vragen te verhelderen.",
+      "Op deze pagina is zijn taak smal: lezers naar passende essays leiden en begrippen binnen de thematiek van de site preciezer maken.",
       "Gesprekken worden op de backend gelogd, zodat de beheerder fouten, stijl en bruikbaarheid kan evalueren. Deel daarom geen persoonlijke, medische, juridische of gevoelige informatie.",
       "De beheerder houdt zichzelf bewust buiten de publieke ervaring. Clarus mag niet speculeren over zijn identiteit.",
     ],
@@ -43,6 +49,7 @@ const copy = {
     close: "Close",
     send: "Send",
     placeholder: "Ask a question about this essay...",
+    corpusPlaceholder: "Ask which essay fits your question...",
     loading: "Clarus is composing an answer.",
     queued:
       "Your question is queued. If Render needs to wake the backend, this can take about 50 seconds. After that, the answer will appear here word by word.",
@@ -50,20 +57,25 @@ const copy = {
     emptyAnswer: "Clarus returned no usable answer.",
     intro: (title) =>
       `I am Clarus. Ask a precise question about "${title}", a concept, an argument or an objection.`,
+    corpusIntro:
+      "I am Clarus. Describe what you want to understand, and I will point you to fitting essays from the archive and clarify the concepts.",
     notice:
       "Conversations are logged so errors, style and usefulness can be reviewed. Do not share personal or sensitive information.",
+    corpusNotice:
+      "Clarus uses the public essay archive as bounded context. It is not a general chatbot and refuses everyday tasks.",
     aboutTitle: "What Clarus Is",
     aboutBody: [
       "Clarus is the reflective assistant of degrondvraag.com. The name points to clarity.",
-      "The system is not a religious authority and not a RAG database. Clarus uses the essay text, the conversation and pre-written instructions to clarify questions.",
+      "The system is not a religious authority and not a RAG database. Clarus uses essay text, the public essay archive, the conversation and pre-written instructions to clarify questions.",
+      "On this page its task is narrow: guide readers to fitting essays and make concepts within the site's themes more precise.",
       "Conversations are logged on the backend so the administrator can evaluate errors, style and usefulness. Do not share personal, medical, legal or sensitive information.",
       "The administrator deliberately keeps himself outside the public experience. Clarus must not speculate about his identity.",
     ],
   },
 };
 
-function getSessionKey(language, essayId) {
-  return `clarus-chat-history-v3:${language}:${essayId || "essay"}`;
+function getSessionKey(language, essayId, contextType) {
+  return `clarus-chat-history-v4:${contextType}:${language}:${essayId || "essay"}`;
 }
 
 function toBackendHistory(messages) {
@@ -117,15 +129,27 @@ function MarkdownMessage({ children }) {
   );
 }
 
-export default function ChatPanel({ essay, language = "nl", onClose }) {
+export default function ChatPanel({
+  essay,
+  essayCorpus = [],
+  contextType = "essay",
+  initialInput = "",
+  language = "nl",
+  onClose,
+}) {
   const t = copy[language] || copy.nl;
-  const sessionKey = useMemo(() => getSessionKey(language, essay?.id), [language, essay?.id]);
+  const isCorpus = contextType === "corpus";
+  const sessionKey = useMemo(
+    () => getSessionKey(language, essay?.id, contextType),
+    [contextType, language, essay?.id]
+  );
   const initialMessages = useMemo(
-    () => [{ from: "clarus", text: t.intro(essay?.title || "dit essay") }],
-    [essay?.title, t]
+    () => [{ from: "clarus", text: isCorpus ? t.corpusIntro : t.intro(essay?.title || "dit essay") }],
+    [essay?.title, isCorpus, t]
   );
 
   const [messages, setMessages] = useState(() => {
+    if (isCorpus) return initialMessages;
     try {
       const item = JSON.parse(localStorage.getItem(sessionKey));
       if (Array.isArray(item?.history)) return item.history;
@@ -145,6 +169,10 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
   }, []);
 
   useEffect(() => {
+    if (isCorpus) {
+      setMessages(initialMessages);
+      return;
+    }
     setMessages(() => {
       try {
         const item = JSON.parse(localStorage.getItem(sessionKey));
@@ -154,15 +182,20 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
       }
       return initialMessages;
     });
-  }, [initialMessages, sessionKey]);
+  }, [initialMessages, isCorpus, sessionKey]);
 
   useEffect(() => {
+    if (isCorpus) return;
     localStorage.setItem(sessionKey, JSON.stringify({ history: messages }));
-  }, [messages, sessionKey]);
+  }, [isCorpus, messages, sessionKey]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, activeTab]);
+
+  useEffect(() => {
+    if (initialInput) setInput(initialInput);
+  }, [initialInput]);
 
   const handleNewChat = () => {
     setMessages(initialMessages);
@@ -203,9 +236,11 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
         body: JSON.stringify({
           vraag: question,
           language,
-          essay: essay.body,
-          essayId: essay.id,
-          essayTitle: essay.title,
+          contextType,
+          essay: essay?.body || "",
+          essayId: essay?.id,
+          essayTitle: essay?.title,
+          essayCorpus,
           history: toBackendHistory(messages),
         }),
       });
@@ -265,7 +300,7 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
     askClarus(question);
   };
 
-  if (!essay?.body) return null;
+  if (!essay?.body && !essayCorpus.length) return null;
 
   return (
     <>
@@ -290,7 +325,7 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">{t.title}</p>
                 <h2 className="mt-1 line-clamp-2 text-base font-semibold leading-6 text-white">
-                  {t.over}: {essay.title}
+                  {isCorpus ? essay?.title : `${t.over}: ${essay?.title}`}
                 </h2>
               </div>
               <div className="flex shrink-0 gap-2">
@@ -339,7 +374,7 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
           {activeTab === "conversation" ? (
             <>
               <div className="border-b border-white/10 bg-sky-300/8 px-4 py-3 text-xs leading-5 text-sky-100">
-                {t.notice}
+                {isCorpus ? t.corpusNotice : t.notice}
               </div>
 
               <div className="flex-1 overflow-y-auto px-4 py-5">
@@ -374,7 +409,7 @@ export default function ChatPanel({ essay, language = "nl", onClose }) {
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     disabled={loading}
-                    placeholder={t.placeholder}
+                    placeholder={isCorpus ? t.corpusPlaceholder : t.placeholder}
                     autoFocus
                     rows={2}
                   />
