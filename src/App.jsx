@@ -1,5 +1,5 @@
 import { Analytics } from "@vercel/analytics/react";
-import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   BrowserRouter as Router,
   Link,
@@ -196,7 +196,7 @@ const copy = {
       title: "Chat met Clarus",
       intro:
         "Vraag Clarus welk essay past bij een begrip, bezwaar of grondvraag. Clarus gebruikt alleen het publieke essayarchief en blijft binnen de thematische grenzen van de site.",
-      openChat: "Open Clarus",
+      openChat: "Live archiefchat",
       corpusReady: (amount) => `${amount} essay(s) beschikbaar`,
       noHistory:
         "Geen accountkoppeling of persoonlijke chatgeschiedenis. Gesprekken kunnen wel technisch worden gelogd om Clarus te verbeteren.",
@@ -462,7 +462,7 @@ const copy = {
       title: "Chat With Clarus",
       intro:
         "Ask Clarus which essay fits a concept, objection or ground question. Clarus uses only the public essay archive and stays within the site's intellectual scope.",
-      openChat: "Open Clarus",
+      openChat: "Live archive chat",
       corpusReady: (amount) => `${amount} essay(s) available`,
       noHistory:
         "No account connection or personal chat history yet. Conversations may still be technically logged to improve Clarus.",
@@ -1462,6 +1462,54 @@ function ReadingCompass({ progress, outline, activeId, stats, language }) {
   );
 }
 
+function EssayCommandBar({ progress, language, onBack, onAsk }) {
+  const t = copy[language];
+
+  return (
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-30 flex justify-center px-4">
+      <div className="essay-command-bar pointer-events-auto flex w-full max-w-2xl items-center gap-2 rounded-lg border border-sky-300/18 bg-[#020817]/90 p-2 shadow-[0_18px_70px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+        <button
+          type="button"
+          onClick={onBack}
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-white/10 bg-white/6 text-slate-200 transition hover:border-sky-300/35 hover:text-white"
+          aria-label={t.actions.back}
+          title={t.actions.back}
+        >
+          <ArrowLeft size={17} />
+        </button>
+        <Link
+          to="/essays"
+          className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-white/10 bg-white/6 text-slate-200 transition hover:border-sky-300/35 hover:text-white"
+          aria-label={t.actions.backToEssays}
+          title={t.actions.backToEssays}
+        >
+          <FileText size={17} />
+        </Link>
+        <div className="min-w-0 flex-1 px-2">
+          <div className="mb-1 flex items-center justify-between gap-3 text-[11px] font-medium uppercase tracking-[0.16em] text-slate-500">
+            <span className="truncate">{copy[language].essays.outline}</span>
+            <span className="shrink-0 text-sky-100">{copy[language].essays.progress(progress)}</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-sky-300 shadow-[0_0_18px_rgba(125,211,252,0.55)] transition-[width] duration-150"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onAsk}
+          className="inline-flex h-10 shrink-0 items-center gap-2 rounded-md bg-sky-300 px-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200"
+        >
+          <Sparkles size={16} />
+          <span className="hidden sm:inline">{t.actions.askClarus}</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EssayPage({ language }) {
   const t = copy[language];
   const { id } = useParams();
@@ -1590,7 +1638,7 @@ function EssayPage({ language }) {
         language={language}
       />
 
-      <article ref={articleRef} className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <article ref={articleRef} className="mx-auto max-w-3xl px-4 pt-12 pb-28 sm:px-6">
       <button
         onClick={() => navigate(-1)}
         className="mb-8 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/6 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-300/35 hover:text-white"
@@ -1626,14 +1674,12 @@ function EssayPage({ language }) {
       <Comments articleId={essay.id} language={language} />
       </article>
 
-      <button
-        type="button"
-        onClick={() => setChatOpen(true)}
-        className="fixed bottom-5 right-5 z-30 inline-flex items-center gap-2 rounded-md border border-sky-300/30 bg-sky-300 px-4 py-3 text-sm font-semibold text-slate-950 shadow-[0_0_42px_rgba(14,165,233,0.26)] transition hover:bg-sky-200"
-      >
-        <Sparkles size={17} />
-        {t.actions.askClarus}
-      </button>
+      <EssayCommandBar
+        progress={readingProgress}
+        language={language}
+        onBack={() => navigate(-1)}
+        onAsk={() => setChatOpen(true)}
+      />
 
       {chatOpen && (
         <Suspense fallback={null}>
@@ -1973,8 +2019,8 @@ function ClarusPage({ language }) {
   const t = copy[language];
   const location = useLocation();
   const { essays, loading, error } = useEssays(language);
-  const [chatOpen, setChatOpen] = useState(false);
   const [starterQuestion, setStarterQuestion] = useState("");
+  const [starterQuestionKey, setStarterQuestionKey] = useState(0);
   const urlPrompt = useMemo(
     () => new URLSearchParams(location.search).get("prompt") || "",
     [location.search]
@@ -1994,38 +2040,32 @@ function ClarusPage({ language }) {
     description: t.clarus.intro,
   });
 
-  const openWithPrompt = (prompt) => {
+  const applyStarterQuestion = useCallback((prompt) => {
     setStarterQuestion(prompt);
-    setChatOpen(true);
-  };
+    setStarterQuestionKey((current) => current + 1);
+  }, []);
 
   useEffect(() => {
     if (!urlPrompt || loading || !corpus.length) return;
-    setStarterQuestion(urlPrompt);
-    setChatOpen(true);
-  }, [corpus.length, loading, urlPrompt]);
+    applyStarterQuestion(urlPrompt);
+  }, [applyStarterQuestion, corpus.length, loading, urlPrompt]);
 
   return (
-    <section className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
-      <div className="grid gap-8 lg:grid-cols-[minmax(0,1.1fr)_minmax(320px,0.9fr)] lg:items-start">
+    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,0.88fr)_minmax(430px,1.12fr)] xl:items-start">
         <div>
           <p className="text-sm font-medium text-sky-200">{t.clarus.eyebrow}</p>
           <h1 className="mt-2 text-4xl font-semibold text-white sm:text-5xl">{t.clarus.title}</h1>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">{t.clarus.intro}</p>
 
           <div className="mt-8 flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => openWithPrompt("")}
-              disabled={!corpus.length}
-              className="inline-flex items-center gap-2 rounded-md bg-sky-300 px-4 py-3 text-sm font-semibold text-slate-950 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <Sparkles size={17} />
-              {t.clarus.openChat}
-            </button>
             <span className="inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/6 px-3 py-2 text-sm text-slate-300">
               <FileText size={16} />
               {loading ? t.firebase.loading : t.clarus.corpusReady(corpus.length)}
+            </span>
+            <span className="inline-flex items-center gap-2 rounded-md border border-sky-300/18 bg-sky-300/8 px-3 py-2 text-sm text-sky-100">
+              <MessageSquare size={16} />
+              {t.clarus.openChat}
             </span>
           </div>
 
@@ -2049,12 +2089,12 @@ function ClarusPage({ language }) {
           {corpus.length > 0 && (
             <div className="mt-8">
               <h2 className="text-lg font-semibold text-white">{t.clarus.promptTitle}</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-3">
+              <div className="mt-4 grid gap-3 sm:grid-cols-2">
                 {t.clarus.examples.map((example) => (
                   <button
                     key={example}
                     type="button"
-                    onClick={() => openWithPrompt(example)}
+                    onClick={() => applyStarterQuestion(example)}
                     className="clarus-prompt-card min-h-28 rounded-lg border border-white/10 bg-[#071126]/70 p-4 text-left text-sm leading-6 text-slate-200 transition hover:border-sky-300/35 hover:bg-sky-300/8"
                   >
                     {example}
@@ -2063,53 +2103,65 @@ function ClarusPage({ language }) {
               </div>
             </div>
           )}
+
+          <aside className="clarus-glow-card mt-8 rounded-lg border border-white/10 bg-slate-950/52 p-5">
+            <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
+              <ShieldCheck size={18} />
+              {t.clarus.scopeTitle}
+            </h2>
+            <ul className="mt-5 space-y-4">
+              {t.clarus.scopeItems.map((item) => (
+                <li key={item} className="flex gap-3 text-sm leading-6 text-slate-300">
+                  <CheckCircle2 className="mt-1 shrink-0 text-sky-200" size={16} />
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+
+            {corpus.length > 0 && (
+              <div className="mt-6 border-t border-white/10 pt-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t.clarus.archiveTitle}</p>
+                <div className="mt-3 max-h-56 space-y-2 overflow-y-auto pr-1">
+                  {corpus.map((essay) => (
+                    <Link
+                      key={essay.id}
+                      to={essay.path}
+                      className="clarus-archive-link block rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white"
+                    >
+                      {essay.title}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </aside>
         </div>
 
-        <aside className="clarus-glow-card rounded-lg border border-white/10 bg-slate-950/52 p-5">
-          <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
-            <ShieldCheck size={18} />
-            {t.clarus.scopeTitle}
-          </h2>
-          <ul className="mt-5 space-y-4">
-            {t.clarus.scopeItems.map((item) => (
-              <li key={item} className="flex gap-3 text-sm leading-6 text-slate-300">
-                <CheckCircle2 className="mt-1 shrink-0 text-sky-200" size={16} />
-                <span>{item}</span>
-              </li>
-            ))}
-          </ul>
-
-          {corpus.length > 0 && (
-            <div className="mt-6 border-t border-white/10 pt-5">
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t.clarus.archiveTitle}</p>
-              <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-                {corpus.map((essay) => (
-                  <Link
-                    key={essay.id}
-                    to={essay.path}
-                    className="clarus-archive-link block rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white"
-                  >
-                    {essay.title}
-                  </Link>
-                ))}
-              </div>
+        <div className="xl:sticky xl:top-24">
+          {loading ? (
+            <div className="min-h-[640px] rounded-lg border border-white/10 bg-slate-950/50 p-5">
+              <div className="h-5 w-36 animate-pulse rounded bg-white/10" />
+              <div className="mt-6 h-16 animate-pulse rounded bg-white/10" />
+              <div className="mt-3 h-16 w-5/6 animate-pulse rounded bg-white/10" />
+              <div className="mt-64 h-20 animate-pulse rounded bg-white/10" />
             </div>
+          ) : corpus.length > 0 ? (
+            <Suspense fallback={null}>
+              <ChatPanel
+                variant="embedded"
+                essay={corpusEssay}
+                essayCorpus={corpus}
+                contextType="corpus"
+                initialInput={starterQuestion}
+                initialInputKey={starterQuestionKey}
+                language={language}
+              />
+            </Suspense>
+          ) : (
+            <EmptyState title={t.clarus.emptyTitle} body={t.clarus.emptyBody} />
           )}
-        </aside>
+        </div>
       </div>
-
-      {chatOpen && (
-        <Suspense fallback={null}>
-          <ChatPanel
-            essay={corpusEssay}
-            essayCorpus={corpus}
-            contextType="corpus"
-            initialInput={starterQuestion}
-            language={language}
-            onClose={() => setChatOpen(false)}
-          />
-        </Suspense>
-      )}
     </section>
   );
 }

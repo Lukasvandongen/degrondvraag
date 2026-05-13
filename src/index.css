@@ -205,6 +205,51 @@
   z-index: 1;
 }
 
+.essay-command-bar,
+.clarus-chat-embed {
+  position: relative;
+  overflow: hidden;
+}
+
+.essay-command-bar::before,
+.clarus-chat-embed::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 16% 0%, rgba(125, 211, 252, 0.18), transparent 34%),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.07), transparent 42%);
+}
+
+.essay-command-bar::after {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.65), transparent);
+  filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.5));
+  animation: command-bar-breathe 3.8s ease-in-out infinite;
+}
+
+.clarus-chat-embed::after {
+  content: "";
+  position: absolute;
+  inset: auto 1.5rem 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.38), transparent);
+  filter: drop-shadow(0 0 18px rgba(56, 189, 248, 0.35));
+}
+
+.essay-command-bar > *,
+.clarus-chat-embed > * {
+  position: relative;
+  z-index: 1;
+}
+
 .clarus-glow-card,
 .clarus-prompt-card,
 .clarus-archive-link {
@@ -325,6 +370,17 @@
   40% {
     transform: translateY(-0.22rem);
     opacity: 1;
+  }
+}
+
+@keyframes command-bar-breathe {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+
+  50% {
+    opacity: 0.9;
   }
 }
 

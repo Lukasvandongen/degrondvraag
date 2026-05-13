@@ -144,11 +144,14 @@ export default function ChatPanel({
   essayCorpus = [],
   contextType = "essay",
   initialInput = "",
+  initialInputKey = 0,
+  variant = "panel",
   language = "nl",
   onClose,
 }) {
   const t = copy[language] || copy.nl;
   const isCorpus = contextType === "corpus";
+  const embedded = variant === "embedded";
   const sessionKey = useMemo(
     () => getSessionKey(language, essay?.id, contextType),
     [contextType, language, essay?.id]
@@ -175,8 +178,8 @@ export default function ChatPanel({
   const bottomRef = useRef(null);
 
   useEffect(() => {
-    setVisible(true);
-  }, []);
+    if (!embedded) setVisible(true);
+  }, [embedded]);
 
   useEffect(() => {
     if (isCorpus) {
@@ -205,7 +208,7 @@ export default function ChatPanel({
 
   useEffect(() => {
     if (initialInput) setInput(initialInput);
-  }, [initialInput]);
+  }, [initialInput, initialInputKey]);
 
   const handleNewChat = () => {
     setMessages(initialMessages);
@@ -213,6 +216,7 @@ export default function ChatPanel({
   };
 
   const handleClose = () => {
+    if (!onClose) return;
     setVisible(false);
     window.setTimeout(onClose, 180);
   };
@@ -312,24 +316,10 @@ export default function ChatPanel({
 
   if (!essay?.body && !essayCorpus.length) return null;
 
-  return (
+  const chatContent = (
     <>
-      <button
-        type="button"
-        onClick={(event) => {
-          if (event.target === event.currentTarget) handleClose();
-        }}
-        className={visible ? "fixed inset-0 z-40 cursor-default bg-[#010612]/70 backdrop-blur-sm transition-opacity" : "fixed inset-0 z-40 cursor-default bg-[#010612]/0 opacity-0 transition-opacity"}
-        aria-label={t.close}
-      />
-
-      <aside
-        className={visible ? "fixed right-0 top-0 z-50 h-full translate-x-0 border-l border-sky-300/15 bg-[#020817]/96 shadow-[0_0_70px_rgba(14,165,233,0.18)] backdrop-blur-xl transition-transform duration-200" : "fixed right-0 top-0 z-50 h-full translate-x-full border-l border-sky-300/15 bg-[#020817]/96 shadow-[0_0_70px_rgba(14,165,233,0.18)] backdrop-blur-xl transition-transform duration-200"}
-        style={{ width: PANEL_WIDTH, maxWidth: "100vw" }}
-        aria-label={t.aria}
-      >
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(56,189,248,0.16),transparent_34%),linear-gradient(160deg,rgba(14,116,144,0.16),transparent_42%)]" />
-        <div className="relative flex h-full flex-col">
+        <div className="relative flex h-full w-full flex-col">
           <header className="border-b border-white/10 px-4 py-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -349,15 +339,17 @@ export default function ChatPanel({
                 >
                   <RefreshCcw size={16} />
                 </button>
-                <button
-                  type="button"
-                  onClick={handleClose}
-                  className="grid h-9 w-9 place-items-center rounded-md border border-white/10 bg-white/6 text-slate-300 transition hover:border-red-300/35 hover:text-red-100"
-                  aria-label={t.close}
-                  title={t.close}
-                >
-                  <X size={17} />
-                </button>
+                {!embedded && (
+                  <button
+                    type="button"
+                    onClick={handleClose}
+                    className="grid h-9 w-9 place-items-center rounded-md border border-white/10 bg-white/6 text-slate-300 transition hover:border-red-300/35 hover:text-red-100"
+                    aria-label={t.close}
+                    title={t.close}
+                  >
+                    <X size={17} />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -452,6 +444,37 @@ export default function ChatPanel({
             </div>
           )}
         </div>
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section
+        className="clarus-chat-embed relative flex min-h-[640px] w-full overflow-hidden rounded-lg border border-sky-300/15 bg-[#020817]/88 shadow-[0_0_70px_rgba(14,165,233,0.16)] backdrop-blur-xl"
+        aria-label={t.aria}
+      >
+        {chatContent}
+      </section>
+    );
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={(event) => {
+          if (event.target === event.currentTarget) handleClose();
+        }}
+        className={visible ? "fixed inset-0 z-40 cursor-default bg-[#010612]/70 backdrop-blur-sm transition-opacity" : "fixed inset-0 z-40 cursor-default bg-[#010612]/0 opacity-0 transition-opacity"}
+        aria-label={t.close}
+      />
+
+      <aside
+        className={visible ? "fixed right-0 top-0 z-50 h-full translate-x-0 border-l border-sky-300/15 bg-[#020817]/96 shadow-[0_0_70px_rgba(14,165,233,0.18)] backdrop-blur-xl transition-transform duration-200" : "fixed right-0 top-0 z-50 h-full translate-x-full border-l border-sky-300/15 bg-[#020817]/96 shadow-[0_0_70px_rgba(14,165,233,0.18)] backdrop-blur-xl transition-transform duration-200"}
+        style={{ width: PANEL_WIDTH, maxWidth: "100vw" }}
+        aria-label={t.aria}
+      >
+        {chatContent}
       </aside>
     </>
   );
