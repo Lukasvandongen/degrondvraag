@@ -250,6 +250,68 @@
   z-index: 1;
 }
 
+.clarus-page-shell {
+  position: relative;
+}
+
+.clarus-page-shell::before {
+  content: "";
+  position: absolute;
+  right: 7%;
+  top: 1.5rem;
+  width: min(38rem, 52vw);
+  height: 18rem;
+  pointer-events: none;
+  opacity: 0.26;
+  background: radial-gradient(circle at 50% 0%, rgba(125, 211, 252, 0.24), transparent 64%);
+  filter: blur(38px);
+}
+
+.clarus-page-shell > * {
+  position: relative;
+  z-index: 1;
+}
+
+.clarus-chat-embed::before {
+  opacity: 0.9;
+  animation: clarus-ambient-shift 12s ease-in-out infinite alternate;
+}
+
+.clarus-dialogue-field {
+  position: relative;
+}
+
+.clarus-dialogue-field::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.5;
+  background:
+    linear-gradient(120deg, transparent 12%, rgba(125, 211, 252, 0.06) 36%, transparent 58%),
+    radial-gradient(circle at 82% 28%, rgba(125, 211, 252, 0.12), transparent 28%),
+    linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: auto, auto, 100% 4.5rem;
+  mask-image: linear-gradient(to bottom, black, black 72%, transparent);
+}
+
+.clarus-dialogue-field::after {
+  content: "";
+  position: absolute;
+  left: 2rem;
+  right: 2rem;
+  bottom: 1rem;
+  height: 1px;
+  pointer-events: none;
+  opacity: 0.55;
+  background: linear-gradient(90deg, transparent, rgba(125, 211, 252, 0.24), transparent);
+}
+
+.clarus-dialogue-field > * {
+  position: relative;
+  z-index: 1;
+}
+
 .clarus-glow-card,
 .clarus-prompt-card,
 .clarus-archive-link {
@@ -276,6 +338,10 @@
 .clarus-prompt-card:hover::before,
 .clarus-archive-link:hover::before {
   opacity: 1;
+}
+
+.clarus-prompt-card {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .clarus-prompt-card > *,
@@ -381,6 +447,16 @@
 
   50% {
     opacity: 0.9;
+  }
+}
+
+@keyframes clarus-ambient-shift {
+  from {
+    transform: translate3d(-1.5%, -0.5%, 0) scale(1);
+  }
+
+  to {
+    transform: translate3d(1.5%, 1%, 0) scale(1.04);
   }
 }
 

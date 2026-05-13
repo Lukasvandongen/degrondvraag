@@ -5,6 +5,10 @@ import remarkGfm from "remark-gfm";
 
 const PANEL_WIDTH = 430;
 
+function cx(...classes) {
+  return classes.filter(Boolean).join(" ");
+}
+
 const copy = {
   nl: {
     aria: "Clarus chatpaneel",
@@ -12,6 +16,7 @@ const copy = {
     over: "Over",
     conversation: "Gesprek",
     about: "Over Clarus",
+    indexed: (amount) => `${amount} essays in de aanbevelingsindex.`,
     newChat: "Nieuw gesprek",
     close: "Sluiten",
     send: "Verstuur",
@@ -45,6 +50,7 @@ const copy = {
     over: "About",
     conversation: "Conversation",
     about: "About Clarus",
+    indexed: (amount) => `${amount} essays indexed for recommendations.`,
     newChat: "New conversation",
     close: "Close",
     send: "Send",
@@ -316,17 +322,32 @@ export default function ChatPanel({
 
   if (!essay?.body && !essayCorpus.length) return null;
 
+  const tabClass = (tab) =>
+    cx(
+      "inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-xs font-semibold transition",
+      activeTab === tab
+        ? embedded
+          ? "bg-white/10 text-sky-100 shadow-[inset_0_0_0_1px_rgba(125,211,252,0.18)]"
+          : "bg-sky-300 text-slate-950"
+        : "text-slate-400 hover:bg-white/8 hover:text-white"
+    );
+
   const chatContent = (
     <>
-        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_0%,rgba(56,189,248,0.16),transparent_34%),linear-gradient(160deg,rgba(14,116,144,0.16),transparent_42%)]" />
+        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_0%,rgba(56,189,248,0.18),transparent_32%),radial-gradient(circle_at_92%_14%,rgba(14,165,233,0.12),transparent_30%),linear-gradient(160deg,rgba(15,23,42,0.72),rgba(2,8,23,0.98)_58%)]" />
         <div className="relative flex h-full w-full flex-col">
-          <header className="border-b border-white/10 px-4 py-4">
+          <header className={embedded ? "border-b border-white/10 px-5 py-5" : "border-b border-white/10 px-4 py-4"}>
             <div className="flex items-start justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">{t.title}</p>
                 <h2 className="mt-1 line-clamp-2 text-base font-semibold leading-6 text-white">
                   {isCorpus ? essay?.title : `${t.over}: ${essay?.title}`}
                 </h2>
+                {embedded && isCorpus && (
+                  <p className="mt-2 text-xs leading-5 text-slate-400">
+                    {t.indexed(essayCorpus.length)}
+                  </p>
+                )}
               </div>
               <div className="flex shrink-0 gap-2">
                 <button
@@ -353,11 +374,11 @@ export default function ChatPanel({
               </div>
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2 rounded-md border border-white/10 bg-slate-950/60 p-1">
+            <div className={embedded ? "mt-5 grid grid-cols-2 gap-1 rounded-md border border-white/10 bg-slate-950/46 p-1" : "mt-4 grid grid-cols-2 gap-2 rounded-md border border-white/10 bg-slate-950/60 p-1"}>
               <button
                 type="button"
                 onClick={() => setActiveTab("conversation")}
-                className={activeTab === "conversation" ? "inline-flex items-center justify-center gap-2 rounded bg-sky-300 px-3 py-2 text-xs font-semibold text-slate-950" : "inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-xs font-semibold text-slate-400 transition hover:bg-white/8 hover:text-white"}
+                className={tabClass("conversation")}
               >
                 <MessageSquare size={14} />
                 {t.conversation}
@@ -365,7 +386,7 @@ export default function ChatPanel({
               <button
                 type="button"
                 onClick={() => setActiveTab("about")}
-                className={activeTab === "about" ? "inline-flex items-center justify-center gap-2 rounded bg-sky-300 px-3 py-2 text-xs font-semibold text-slate-950" : "inline-flex items-center justify-center gap-2 rounded px-3 py-2 text-xs font-semibold text-slate-400 transition hover:bg-white/8 hover:text-white"}
+                className={tabClass("about")}
               >
                 <Info size={14} />
                 {t.about}
@@ -375,16 +396,16 @@ export default function ChatPanel({
 
           {activeTab === "conversation" ? (
             <>
-              <div className="border-b border-white/10 bg-sky-300/8 px-4 py-3 text-xs leading-5 text-sky-100">
+              <div className={embedded ? "border-b border-white/10 bg-white/[0.035] px-5 py-3 text-xs leading-5 text-slate-300" : "border-b border-white/10 bg-sky-300/8 px-4 py-3 text-xs leading-5 text-sky-100"}>
                 {isCorpus ? t.corpusNotice : t.notice}
               </div>
 
-              <div className="flex-1 overflow-y-auto px-4 py-5">
+              <div className={embedded ? "clarus-dialogue-field flex-1 overflow-y-auto px-5 py-6" : "flex-1 overflow-y-auto px-4 py-5"}>
                 <div className="space-y-3">
                   {messages.map((message, index) => (
                     <div
                       key={`${message.from}-${index}`}
-                      className={message.from === "user" ? "ml-auto max-w-[84%] rounded-lg rounded-br-sm border border-sky-300/20 bg-sky-300/14 px-3 py-2.5 text-sm leading-6 text-sky-50" : "max-w-[88%] rounded-lg rounded-bl-sm border border-white/10 bg-white/7 px-3 py-2.5 text-sm leading-6 text-slate-200"}
+                      className={message.from === "user" ? "ml-auto max-w-[84%] rounded-lg rounded-br-sm border border-sky-300/20 bg-sky-300/14 px-3 py-2.5 text-sm leading-6 text-sky-50" : "max-w-[88%] rounded-lg rounded-bl-sm border border-white/10 bg-white/7 px-3 py-2.5 text-sm leading-6 text-slate-200 shadow-[0_16px_44px_rgba(0,0,0,0.18)]"}
                     >
                       {message.pending ? (
                         <TypingIndicator label={t.loading} />
@@ -410,10 +431,10 @@ export default function ChatPanel({
                 </div>
               </div>
 
-              <form onSubmit={handleSubmit} className="border-t border-white/10 bg-[#020817]/95 p-4">
-                <div className="flex items-end gap-2">
+              <form onSubmit={handleSubmit} className={embedded ? "mt-auto border-t border-white/10 bg-[#020817]/92 p-4" : "border-t border-white/10 bg-[#020817]/95 p-4"}>
+                <div className="flex items-end gap-2 rounded-lg border border-white/10 bg-slate-950/72 p-1.5 shadow-[0_18px_50px_rgba(0,0,0,0.22)]">
                   <textarea
-                    className="field min-h-12 max-h-36 resize-y"
+                    className="field min-h-12 max-h-36 resize-none border-0 bg-transparent focus:ring-0"
                     value={input}
                     onChange={(event) => setInput(event.target.value)}
                     disabled={loading}
@@ -424,7 +445,7 @@ export default function ChatPanel({
                   <button
                     type="submit"
                     disabled={loading || !input.trim()}
-                    className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-sky-300 text-slate-950 transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
+                    className="grid h-12 w-12 shrink-0 place-items-center rounded-md bg-sky-300 text-slate-950 shadow-[0_0_26px_rgba(125,211,252,0.2)] transition hover:bg-sky-200 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label={t.send}
                     title={t.send}
                   >
@@ -450,7 +471,7 @@ export default function ChatPanel({
   if (embedded) {
     return (
       <section
-        className="clarus-chat-embed relative flex min-h-[640px] w-full overflow-hidden rounded-lg border border-sky-300/15 bg-[#020817]/88 shadow-[0_0_70px_rgba(14,165,233,0.16)] backdrop-blur-xl"
+        className="clarus-chat-embed relative flex h-[calc(100vh-8rem)] min-h-[560px] max-h-[760px] w-full overflow-hidden rounded-lg border border-sky-300/18 bg-[#020817]/92 shadow-[0_0_95px_rgba(14,165,233,0.18),0_34px_110px_rgba(0,0,0,0.42)] backdrop-blur-xl"
         aria-label={t.aria}
       >
         {chatContent}

@@ -2051,9 +2051,9 @@ function ClarusPage({ language }) {
   }, [applyStarterQuestion, corpus.length, loading, urlPrompt]);
 
   return (
-    <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <div className="grid gap-8 xl:grid-cols-[minmax(0,0.88fr)_minmax(430px,1.12fr)] xl:items-start">
-        <div>
+    <section className="clarus-page-shell mx-auto max-w-7xl px-4 py-10 sm:px-6">
+      <div className="grid gap-8 xl:grid-cols-[minmax(0,0.78fr)_minmax(460px,1.22fr)] xl:items-start">
+        <div className="max-w-xl">
           <p className="text-sm font-medium text-sky-200">{t.clarus.eyebrow}</p>
           <h1 className="mt-2 text-4xl font-semibold text-white sm:text-5xl">{t.clarus.title}</h1>
           <p className="mt-5 max-w-2xl text-base leading-8 text-slate-300">{t.clarus.intro}</p>
@@ -2089,15 +2089,16 @@ function ClarusPage({ language }) {
           {corpus.length > 0 && (
             <div className="mt-8">
               <h2 className="text-lg font-semibold text-white">{t.clarus.promptTitle}</h2>
-              <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              <div className="mt-4 space-y-2">
                 {t.clarus.examples.map((example) => (
                   <button
                     key={example}
                     type="button"
                     onClick={() => applyStarterQuestion(example)}
-                    className="clarus-prompt-card min-h-28 rounded-lg border border-white/10 bg-[#071126]/70 p-4 text-left text-sm leading-6 text-slate-200 transition hover:border-sky-300/35 hover:bg-sky-300/8"
+                    className="clarus-prompt-card group flex w-full items-center justify-between gap-4 rounded-md border border-white/10 bg-[#071126]/62 px-4 py-3 text-left text-sm leading-6 text-slate-200 transition hover:border-sky-300/35 hover:bg-sky-300/8"
                   >
-                    {example}
+                    <span>{example}</span>
+                    <ArrowRight className="shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-sky-200" size={16} />
                   </button>
                 ))}
               </div>
