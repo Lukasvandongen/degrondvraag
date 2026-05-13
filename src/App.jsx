@@ -1,11 +1,12 @@
 import { Analytics } from "@vercel/analytics/react";
-import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
   BrowserRouter as Router,
   Link,
   NavLink,
   Route,
   Routes,
+  useLocation,
   useNavigate,
   useParams,
 } from "react-router-dom";
@@ -169,6 +170,9 @@ const copy = {
       intro: "Filter op onderwerp of zoek direct in titels en samenvattingen.",
       search: "Zoek essays",
       all: "Alles",
+      readingTime: (minutes) => `${minutes} min lezen`,
+      progress: (percent) => `${percent}% gelezen`,
+      outline: "Opbouw",
       emptyTitle: "Geen essays gevonden",
       emptyBody: "Pas je filters aan of publiceer een nieuw essay in het adminpaneel.",
       untitled: "Een essay zonder titel.",
@@ -391,6 +395,9 @@ const copy = {
       intro: "Filter by subject or search directly through titles and summaries.",
       search: "Search essays",
       all: "All",
+      readingTime: (minutes) => `${minutes} min read`,
+      progress: (percent) => `${percent}% read`,
+      outline: "Structure",
       emptyTitle: "No essays found",
       emptyBody: "Adjust your filters or publish a new essay in the admin panel.",
       untitled: "An untitled essay.",
@@ -549,6 +556,21 @@ const copy = {
   },
 };
 
+const SITE_NAME = "degrondvraag";
+const SITE_URL = "https://degrondvraag.com";
+const DEFAULT_META = {
+  nl: {
+    title: SITE_NAME,
+    description:
+      "Een sober essayarchief voor vragen over geloof, moraal en bestaan die traag en precies onderzocht moeten worden.",
+  },
+  en: {
+    title: SITE_NAME,
+    description:
+      "A restrained essay archive for questions about faith, morality and existence that need slow and precise examination.",
+  },
+};
+
 const createEmptyEssay = () => ({
   title: "",
   id: "",
@@ -574,6 +596,62 @@ const textFromHTML = (html = "") => {
   return container.textContent || "";
 };
 
+const toPlainMeta = (value = "", maxLength = 160) => {
+  const normalized = String(value).replace(/\s+/g, " ").trim();
+  if (normalized.length <= maxLength) return normalized;
+  const clipped = normalized.slice(0, maxLength - 3).replace(/\s+\S*$/, "");
+  return `${clipped || normalized.slice(0, maxLength - 3)}...`;
+};
+
+const formatMetaTitle = (title) => {
+  const cleanTitle = toPlainMeta(title, 70);
+  if (!cleanTitle || cleanTitle.toLowerCase() === SITE_NAME) return SITE_NAME;
+  return `${cleanTitle} | ${SITE_NAME}`;
+};
+
+function upsertMeta(attribute, key, content) {
+  let tag = document.head.querySelector(`meta[${attribute}="${key}"]`);
+  if (!tag) {
+    tag = document.createElement("meta");
+    tag.setAttribute(attribute, key);
+    document.head.appendChild(tag);
+  }
+  tag.setAttribute("content", content);
+}
+
+function upsertCanonical(href) {
+  let link = document.head.querySelector('link[rel="canonical"]');
+  if (!link) {
+    link = document.createElement("link");
+    link.setAttribute("rel", "canonical");
+    document.head.appendChild(link);
+  }
+  link.setAttribute("href", href);
+}
+
+function usePageMeta(language, { title, description, type = "website" } = {}) {
+  const location = useLocation();
+
+  useEffect(() => {
+    const defaults = DEFAULT_META[language] || DEFAULT_META.nl;
+    const pageTitle = formatMetaTitle(title || defaults.title);
+    const pageDescription = toPlainMeta(description || defaults.description);
+    const canonical = `${SITE_URL}${location.pathname}`;
+
+    document.title = pageTitle;
+    upsertMeta("name", "description", pageDescription);
+    upsertMeta("property", "og:title", pageTitle);
+    upsertMeta("property", "og:description", pageDescription);
+    upsertMeta("property", "og:type", type);
+    upsertMeta("property", "og:site_name", SITE_NAME);
+    upsertMeta("property", "og:url", canonical);
+    upsertMeta("name", "twitter:card", "summary");
+    upsertMeta("name", "twitter:title", pageTitle);
+    upsertMeta("name", "twitter:description", pageDescription);
+    upsertCanonical(canonical);
+  }, [description, language, location.pathname, title, type]);
+}
+
 const getTextStats = (html = "") => {
   const words = textFromHTML(html).trim().split(/\s+/).filter(Boolean).length;
   return {
@@ -588,6 +666,41 @@ const slugify = (str = "") =>
     .toLowerCase()
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/^-+|-+$/g, "");
+
+const prepareEssayContent = (html = "") => {
+  const safeHTML = sanitizeHTML(html);
+  const container = document.createElement("div");
+  container.innerHTML = safeHTML;
+  const usedIds = new Set();
+  const outline = [];
+
+  container.querySelectorAll("h2, h3").forEach((heading, index) => {
+    const text = heading.textContent?.replace(/\s+/g, " ").trim();
+    if (!text) return;
+
+    const base = slugify(text) || `section-${index + 1}`;
+    let id = base;
+    let counter = 2;
+    while (usedIds.has(id)) {
+      id = `${base}-${counter}`;
+      counter += 1;
+    }
+
+    usedIds.add(id);
+    heading.id = id;
+    heading.classList.add("scroll-mt-28");
+    outline.push({
+      id,
+      text,
+      level: heading.tagName === "H3" ? 3 : 2,
+    });
+  });
+
+  return {
+    html: container.innerHTML,
+    outline,
+  };
+};
 
 const normalizeTranslations = (essay = {}) => ({
   en: {
@@ -722,6 +835,38 @@ function useEssays(language, includeDrafts = false) {
   }, [includeDrafts, t.error, t.slow]);
 
   return state;
+}
+
+function useReadingProgress(articleRef) {
+  const [progress, setProgress] = useState(0);
+
+  useEffect(() => {
+    const updateProgress = () => {
+      const article = articleRef.current;
+      if (!article) {
+        setProgress(0);
+        return;
+      }
+
+      const rect = article.getBoundingClientRect();
+      const articleTop = window.scrollY + rect.top;
+      const readableHeight = Math.max(article.offsetHeight - window.innerHeight * 0.62, 1);
+      const current = window.scrollY - articleTop + window.innerHeight * 0.2;
+      const nextProgress = Math.min(100, Math.max(0, Math.round((current / readableHeight) * 100)));
+      setProgress(nextProgress);
+    };
+
+    updateProgress();
+    window.addEventListener("scroll", updateProgress, { passive: true });
+    window.addEventListener("resize", updateProgress);
+
+    return () => {
+      window.removeEventListener("scroll", updateProgress);
+      window.removeEventListener("resize", updateProgress);
+    };
+  }, [articleRef]);
+
+  return progress;
 }
 
 function BackgroundScene() {
@@ -904,6 +1049,10 @@ function EmptyState({ title, body, action }) {
 
 function HomePage({ language }) {
   const t = copy[language];
+  usePageMeta(language, {
+    title: t.home.title,
+    description: t.home.intro,
+  });
   const { essays, loading, error } = useEssays(language);
   const latest = essays.filter((essay) => essay.status === "published").slice(0, 3);
 
@@ -996,6 +1145,10 @@ function SkeletonGrid() {
 
 function EssaysOverviewPage({ language }) {
   const t = copy[language];
+  usePageMeta(language, {
+    title: t.essays.title,
+    description: t.essays.intro,
+  });
   const { essays, loading, error } = useEssays(language);
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
@@ -1080,6 +1233,56 @@ function EssaysOverviewPage({ language }) {
   );
 }
 
+function ReadingCompass({ progress, outline, stats, language }) {
+  const t = copy[language].essays;
+
+  return (
+    <>
+      <div className="fixed inset-x-0 top-[65px] z-30 h-px bg-white/8" aria-hidden="true">
+        <div
+          className="h-full bg-sky-300 shadow-[0_0_18px_rgba(125,211,252,0.65)] transition-[width] duration-150"
+          style={{ width: `${progress}%` }}
+        />
+      </div>
+
+      <aside className="fixed bottom-5 left-5 z-30 hidden w-[250px] 2xl:block">
+        <div className="rounded-lg border border-white/10 bg-[#071126]/86 p-4 shadow-[0_22px_80px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+          <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
+            <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-300">
+              <FileText size={14} />
+              {t.readingTime(stats.minutes)}
+            </div>
+            <span className="rounded border border-sky-300/20 bg-sky-300/10 px-2 py-1 text-[11px] font-semibold text-sky-100">
+              {t.progress(progress)}
+            </span>
+          </div>
+
+          {outline.length > 0 && (
+            <nav className="mt-3" aria-label={t.outline}>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t.outline}</p>
+              <ol className="max-h-[36vh] space-y-1 overflow-y-auto pr-1">
+                {outline.map((item) => (
+                  <li key={item.id}>
+                    <a
+                      href={`#${item.id}`}
+                      className={cx(
+                        "block rounded px-2 py-1.5 text-xs leading-5 text-slate-400 transition hover:bg-white/7 hover:text-sky-100",
+                        item.level === 3 && "pl-5"
+                      )}
+                    >
+                      {item.text}
+                    </a>
+                  </li>
+                ))}
+              </ol>
+            </nav>
+          )}
+        </div>
+      </aside>
+    </>
+  );
+}
+
 function EssayPage({ language }) {
   const t = copy[language];
   const { id } = useParams();
@@ -1088,6 +1291,22 @@ function EssayPage({ language }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [chatOpen, setChatOpen] = useState(false);
+  const articleRef = useRef(null);
+  const localized = essay ? localizeEssay(essay, language) : null;
+  const preparedContent = useMemo(
+    () => prepareEssayContent(localized?.displayBody || ""),
+    [localized?.displayBody]
+  );
+  const readingStats = useMemo(() => getTextStats(localized?.displayBody || ""), [localized?.displayBody]);
+  const readingProgress = useReadingProgress(articleRef);
+
+  usePageMeta(language, {
+    title: localized?.hasRequestedLanguage ? localized.displayTitle : t.essays.title,
+    description: localized?.hasRequestedLanguage
+      ? localized.displayExcerpt || textFromHTML(localized.displayBody)
+      : error || t.essays.intro,
+    type: "article",
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -1155,7 +1374,6 @@ function EssayPage({ language }) {
     );
   }
 
-  const localized = localizeEssay(essay, language);
   const clarusEssay = {
     ...essay,
     title: localized.displayTitle,
@@ -1184,7 +1402,14 @@ function EssayPage({ language }) {
 
   return (
     <>
-      <article className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
+      <ReadingCompass
+        progress={readingProgress}
+        outline={preparedContent.outline}
+        stats={readingStats}
+        language={language}
+      />
+
+      <article ref={articleRef} className="mx-auto max-w-3xl px-4 py-12 sm:px-6">
       <button
         onClick={() => navigate(-1)}
         className="mb-8 inline-flex items-center gap-2 rounded-md border border-white/10 bg-white/6 px-3 py-2 text-sm font-medium text-slate-200 transition hover:border-sky-300/35 hover:text-white"
@@ -1199,6 +1424,10 @@ function EssayPage({ language }) {
             <CalendarDays size={16} />
             {formatDate(essay.date, language)}
           </span>
+          <span className="inline-flex items-center gap-2 text-sm text-slate-400">
+            <FileText size={16} />
+            {t.essays.readingTime(readingStats.minutes)}
+          </span>
           <CategoryPills categories={essay.categories} language={language} />
         </div>
         <h1 className="text-4xl font-semibold leading-tight text-white sm:text-5xl">{localized.displayTitle}</h1>
@@ -1210,7 +1439,7 @@ function EssayPage({ language }) {
 
       <div
         className="prose prose-invert prose-slate mt-10 max-w-none prose-headings:text-white prose-a:text-sky-200 prose-strong:text-white"
-        dangerouslySetInnerHTML={{ __html: sanitizeHTML(localized.displayBody) }}
+        dangerouslySetInnerHTML={{ __html: preparedContent.html }}
       />
 
       <Comments articleId={essay.id} language={language} />
@@ -1467,6 +1696,10 @@ function Comments({ articleId, language }) {
 
 function FeedbackPage({ language }) {
   const t = copy[language].feedback;
+  usePageMeta(language, {
+    title: t.title,
+    description: t.intro,
+  });
   const [text, setText] = useState("");
   const [honeypot, setHoneypot] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -1557,6 +1790,10 @@ function FeedbackPage({ language }) {
 
 function AdminLogin({ language, onLogin }) {
   const t = copy[language].admin;
+  usePageMeta(language, {
+    title: t.loginTitle,
+    description: t.loginBody,
+  });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [err, setErr] = useState("");
@@ -1884,6 +2121,10 @@ function AdminClarusLogsPanel({ language }) {
 
 function AdminPanel({ language, onSignOut }) {
   const t = copy[language];
+  usePageMeta(language, {
+    title: t.admin.title,
+    description: t.admin.workingTitle,
+  });
   const { essays, loading, error: syncError } = useEssays(language, true);
   const [form, setForm] = useState(createEmptyEssay);
   const [editorLanguage, setEditorLanguage] = useState("nl");
@@ -2422,6 +2663,10 @@ function AdminStat({ label, value, tone = "blue" }) {
 
 function AboutPage({ language }) {
   const t = copy[language].pages;
+  usePageMeta(language, {
+    title: t.aboutTitle,
+    description: t.about[0],
+  });
   return (
     <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
       <p className="text-sm font-medium text-sky-200">{t.aboutEyebrow}</p>
@@ -2444,6 +2689,10 @@ function AboutPage({ language }) {
 
 function RoadmapPage({ language }) {
   const t = copy[language].pages;
+  usePageMeta(language, {
+    title: t.roadmapTitle,
+    description: t.laterItems[0],
+  });
   return (
     <section className="mx-auto max-w-4xl px-4 py-14 sm:px-6">
       <p className="text-sm font-medium text-sky-200">{t.roadmapEyebrow}</p>
@@ -2474,6 +2723,10 @@ function RoadmapBlock({ title, items }) {
 
 function PrivacyPage({ language }) {
   const t = copy[language].pages;
+  usePageMeta(language, {
+    title: t.privacyTitle,
+    description: t.privacy[0],
+  });
   return (
     <section className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
       <p className="text-sm font-medium text-sky-200">{t.privacyEyebrow}</p>
@@ -2496,6 +2749,10 @@ function PrivacyPage({ language }) {
 
 function NotFoundPage({ language }) {
   const t = copy[language];
+  usePageMeta(language, {
+    title: t.pages.notFoundTitle,
+    description: t.pages.notFoundBody,
+  });
   return (
     <section className="mx-auto max-w-3xl px-4 py-16 text-center">
       <EmptyState
