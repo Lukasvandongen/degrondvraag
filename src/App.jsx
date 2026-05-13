@@ -176,6 +176,11 @@ const copy = {
       readingTime: (minutes) => `${minutes} min lezen`,
       progress: (percent) => `${percent}% gelezen`,
       outline: "Opbouw",
+      featured: "Uitgelicht",
+      publishedCount: "Gepubliceerd",
+      showingCount: "In beeld",
+      subjectCount: "Onderwerpen",
+      latestStart: "Nieuwste startpunt",
       emptyTitle: "Geen essays gevonden",
       emptyBody: "Pas je filters aan of publiceer een nieuw essay in het adminpaneel.",
       untitled: "Een essay zonder titel.",
@@ -437,6 +442,11 @@ const copy = {
       readingTime: (minutes) => `${minutes} min read`,
       progress: (percent) => `${percent}% read`,
       outline: "Structure",
+      featured: "Featured",
+      publishedCount: "Published",
+      showingCount: "Showing",
+      subjectCount: "Subjects",
+      latestStart: "Latest starting point",
       emptyTitle: "No essays found",
       emptyBody: "Adjust your filters or publish a new essay in the admin panel.",
       untitled: "An untitled essay.",
@@ -962,6 +972,40 @@ function useReadingProgress(articleRef) {
   return progress;
 }
 
+function useActiveHeading(outline) {
+  const [activeId, setActiveId] = useState("");
+
+  useEffect(() => {
+    if (!outline.length) {
+      setActiveId("");
+      return undefined;
+    }
+
+    const headings = outline
+      .map((item) => document.getElementById(item.id))
+      .filter(Boolean);
+    if (!headings.length) return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries
+          .filter((entry) => entry.isIntersecting)
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)[0];
+        if (visible?.target?.id) setActiveId(visible.target.id);
+      },
+      {
+        rootMargin: "-18% 0px -64% 0px",
+        threshold: [0, 1],
+      }
+    );
+
+    headings.forEach((heading) => observer.observe(heading));
+    return () => observer.disconnect();
+  }, [outline]);
+
+  return activeId;
+}
+
 function BackgroundScene() {
   return (
     <div className="fixed inset-0 -z-10 overflow-hidden bg-[#020817]" aria-hidden="true">
@@ -969,6 +1013,9 @@ function BackgroundScene() {
       <div className="ink-wash ink-wash-one" />
       <div className="ink-wash ink-wash-two" />
       <div className="paper-field" />
+      <div className="thought-current thought-current-one" />
+      <div className="thought-current thought-current-two" />
+      <div className="thought-current thought-current-three" />
       <div className="noise-layer" />
     </div>
   );
@@ -1105,7 +1152,7 @@ function EssayCard({ essay, language }) {
   return (
     <Link
       to={`/essays/${essay.id}`}
-      className="group flex min-h-[250px] flex-col rounded-md border border-white/10 bg-[#071126]/72 p-5 shadow-[0_22px_70px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:border-sky-200/28 hover:bg-[#09162f]/86"
+      className="glow-surface group flex min-h-[250px] flex-col rounded-md border border-white/10 bg-[#071126]/72 p-5 shadow-[0_22px_70px_rgba(0,0,0,0.22)] transition hover:-translate-y-0.5 hover:border-sky-200/28 hover:bg-[#09162f]/86"
     >
       <div className="mb-5 flex items-center justify-between gap-3">
         <span className="inline-flex items-center gap-2 text-xs text-slate-400">
@@ -1134,7 +1181,7 @@ function EssayCard({ essay, language }) {
 
 function EmptyState({ title, body, action }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/45 p-8 text-center">
+    <div className="glow-surface rounded-lg border border-white/10 bg-slate-950/45 p-8 text-center">
       <Sparkles className="mx-auto mb-4 text-sky-200" size={26} />
       <h3 className="text-lg font-semibold text-white">{title}</h3>
       <p className="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-400">{body}</p>
@@ -1249,10 +1296,14 @@ function EssaysOverviewPage({ language }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [search, setSearch] = useState("");
 
+  const allPublishedEssays = useMemo(
+    () => essays.filter((essay) => essay.status === "published"),
+    [essays]
+  );
+
   const publishedEssays = useMemo(
     () =>
-      essays
-        .filter((essay) => essay.status === "published")
+      allPublishedEssays
         .filter((essay) => selectedCategory === "all" || (essay.categories || []).includes(selectedCategory))
         .filter((essay) => {
           const needle = search.trim().toLowerCase();
@@ -1262,55 +1313,116 @@ function EssaysOverviewPage({ language }) {
             .filter(Boolean)
             .some((value) => String(value).toLowerCase().includes(needle));
         }),
-    [essays, language, search, selectedCategory]
+    [allPublishedEssays, language, search, selectedCategory]
   );
+
+  const featuredEssay = publishedEssays[0] || allPublishedEssays[0];
+  const featured = featuredEssay ? localizeEssay(featuredEssay, language) : null;
+  const categoryCounts = useMemo(
+    () =>
+      CATEGORIES.map((category) => ({
+        id: category,
+        label: categoryLabels[language][category] || category,
+        count: allPublishedEssays.filter((essay) => (essay.categories || []).includes(category)).length,
+      })),
+    [allPublishedEssays, language]
+  );
+  const activeSubjectCount = categoryCounts.filter((category) => category.count > 0).length;
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <div className="mb-8 flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <p className="text-sm font-medium text-sky-200">{t.essays.eyebrow}</p>
-          <h1 className="mt-2 text-4xl font-semibold text-white">{t.essays.title}</h1>
-          <p className="mt-3 max-w-2xl text-slate-400">{t.essays.intro}</p>
-        </div>
-        <label className="relative block w-full max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full rounded-md border border-white/10 bg-slate-950/65 py-3 pl-10 pr-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-sky-300/50 focus:ring-2 focus:ring-sky-400/15"
-            placeholder={t.essays.search}
-          />
-        </label>
-      </div>
+      <div className="archive-console glow-surface mb-10 rounded-lg border border-white/10 bg-[#071126]/78 p-5 shadow-[0_28px_110px_rgba(0,0,0,0.34)] sm:p-6">
+        <div className="grid gap-7 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+          <div>
+            <p className="text-sm font-medium text-sky-200">{t.essays.eyebrow}</p>
+            <h1 className="mt-2 text-4xl font-semibold text-white">{t.essays.title}</h1>
+            <p className="mt-3 max-w-2xl text-slate-400">{t.essays.intro}</p>
 
-      <div className="mb-8 flex flex-wrap gap-2">
-        <button
-          onClick={() => setSelectedCategory("all")}
-          className={cx(
-            "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
-            selectedCategory === "all"
-              ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
-              : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              <div className="rounded-md border border-white/10 bg-white/5 p-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{t.essays.publishedCount}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{allPublishedEssays.length}</p>
+              </div>
+              <div className="rounded-md border border-white/10 bg-white/5 p-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{t.essays.showingCount}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{publishedEssays.length}</p>
+              </div>
+              <div className="rounded-md border border-white/10 bg-white/5 p-3">
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{t.essays.subjectCount}</p>
+                <p className="mt-2 text-2xl font-semibold text-white">{activeSubjectCount}</p>
+              </div>
+            </div>
+
+            <label className="relative mt-5 block w-full max-w-2xl">
+              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="field pl-10"
+                placeholder={t.essays.search}
+              />
+            </label>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                onClick={() => setSelectedCategory("all")}
+                className={cx(
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
+                  selectedCategory === "all"
+                    ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+                    : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+                )}
+              >
+                <Filter size={15} />
+                {t.essays.all}
+                <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px]">{allPublishedEssays.length}</span>
+              </button>
+              {categoryCounts.map((category) => (
+                <button
+                  key={category.id}
+                  onClick={() => setSelectedCategory(category.id)}
+                  className={cx(
+                    "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
+                    selectedCategory === category.id
+                      ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+                      : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+                  )}
+                >
+                  {category.label}
+                  <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px]">{category.count}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {featuredEssay && featured && (
+            <Link
+              to={`/essays/${featuredEssay.id}`}
+              className="archive-feature group relative overflow-hidden rounded-lg border border-sky-300/18 bg-slate-950/45 p-5 transition hover:-translate-y-0.5 hover:border-sky-300/42"
+            >
+              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">
+                <Sparkles size={14} />
+                {t.essays.featured}
+              </p>
+              <h2 className="mt-5 text-2xl font-semibold leading-tight text-white">{featured.displayTitle}</h2>
+              <p className="mt-4 line-clamp-4 text-sm leading-6 text-slate-300">{featured.displayExcerpt}</p>
+              <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                <span className="inline-flex items-center gap-1.5">
+                  <CalendarDays size={14} />
+                  {formatDate(featuredEssay.date, language)}
+                </span>
+                <span className="inline-flex items-center gap-1.5">
+                  <Tag size={14} />
+                  {t.essays.latestStart}
+                </span>
+              </div>
+              <span className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-sky-100">
+                {t.actions.readEssay}
+                <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
+              </span>
+            </Link>
           )}
-        >
-          <Filter size={15} />
-          {t.essays.all}
-        </button>
-        {CATEGORIES.map((category) => (
-          <button
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={cx(
-              "rounded-md border px-3 py-2 text-sm transition",
-              selectedCategory === category
-                ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
-                : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
-            )}
-          >
-            {categoryLabels[language][category] || category}
-          </button>
-        ))}
+        </div>
       </div>
 
       {loading && <SkeletonGrid />}
@@ -1329,7 +1441,7 @@ function EssaysOverviewPage({ language }) {
   );
 }
 
-function ReadingCompass({ progress, outline, stats, language }) {
+function ReadingCompass({ progress, outline, activeId, stats, language }) {
   const t = copy[language].essays;
 
   return (
@@ -1341,8 +1453,8 @@ function ReadingCompass({ progress, outline, stats, language }) {
         />
       </div>
 
-      <aside className="fixed bottom-5 left-5 z-30 hidden w-[250px] 2xl:block">
-        <div className="rounded-lg border border-white/10 bg-[#071126]/86 p-4 shadow-[0_22px_80px_rgba(0,0,0,0.34)] backdrop-blur-xl">
+      <aside className="fixed right-5 top-28 z-30 hidden w-[260px] 2xl:block">
+        <div className="reading-compass-shell rounded-lg border border-white/10 bg-[#071126]/82 p-4 shadow-[0_22px_80px_rgba(0,0,0,0.34)] backdrop-blur-xl">
           <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-3">
             <div className="inline-flex items-center gap-2 text-xs font-medium text-slate-300">
               <FileText size={14} />
@@ -1362,7 +1474,8 @@ function ReadingCompass({ progress, outline, stats, language }) {
                     <a
                       href={`#${item.id}`}
                       className={cx(
-                        "block rounded px-2 py-1.5 text-xs leading-5 text-slate-400 transition hover:bg-white/7 hover:text-sky-100",
+                        "relative block rounded px-2 py-1.5 text-xs leading-5 transition hover:bg-white/7 hover:text-sky-100",
+                        activeId === item.id ? "bg-sky-300/10 text-sky-100 shadow-[inset_2px_0_0_rgba(125,211,252,0.85)]" : "text-slate-400",
                         item.level === 3 && "pl-5"
                       )}
                     >
@@ -1395,6 +1508,7 @@ function EssayPage({ language }) {
   );
   const readingStats = useMemo(() => getTextStats(localized?.displayBody || ""), [localized?.displayBody]);
   const readingProgress = useReadingProgress(articleRef);
+  const activeHeading = useActiveHeading(preparedContent.outline);
 
   usePageMeta(language, {
     title: localized?.hasRequestedLanguage ? localized.displayTitle : t.essays.title,
@@ -1501,6 +1615,7 @@ function EssayPage({ language }) {
       <ReadingCompass
         progress={readingProgress}
         outline={preparedContent.outline}
+        activeId={activeHeading}
         stats={readingStats}
         language={language}
       />
@@ -1959,7 +2074,7 @@ function ClarusPage({ language }) {
                     key={example}
                     type="button"
                     onClick={() => openWithPrompt(example)}
-                    className="min-h-28 rounded-lg border border-white/10 bg-[#071126]/70 p-4 text-left text-sm leading-6 text-slate-200 transition hover:border-sky-300/35 hover:bg-sky-300/8"
+                    className="clarus-prompt-card min-h-28 rounded-lg border border-white/10 bg-[#071126]/70 p-4 text-left text-sm leading-6 text-slate-200 transition hover:border-sky-300/35 hover:bg-sky-300/8"
                   >
                     {example}
                   </button>
@@ -1969,7 +2084,7 @@ function ClarusPage({ language }) {
           )}
         </div>
 
-        <aside className="rounded-lg border border-white/10 bg-slate-950/52 p-5">
+        <aside className="clarus-glow-card rounded-lg border border-white/10 bg-slate-950/52 p-5">
           <h2 className="flex items-center gap-2 text-xl font-semibold text-white">
             <ShieldCheck size={18} />
             {t.clarus.scopeTitle}
@@ -1991,7 +2106,7 @@ function ClarusPage({ language }) {
                   <Link
                     key={essay.id}
                     to={essay.path}
-                    className="block rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white"
+                    className="clarus-archive-link block rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white"
                   >
                     {essay.title}
                   </Link>
@@ -3117,7 +3232,7 @@ function RoadmapPage({ language }) {
 
 function RoadmapBlock({ title, items }) {
   return (
-    <div className="rounded-lg border border-white/10 bg-slate-950/52 p-5">
+    <div className="glow-surface rounded-lg border border-white/10 bg-slate-950/52 p-5">
       <h2 className="text-xl font-semibold text-white">{title}</h2>
       <ul className="mt-4 space-y-3">
         {items.map((item) => (

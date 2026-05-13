@@ -129,6 +129,16 @@ function MarkdownMessage({ children }) {
   );
 }
 
+function TypingIndicator({ label }) {
+  return (
+    <div className="inline-flex items-center gap-1.5 py-1" aria-label={label} role="status">
+      <span className="typing-dot" />
+      <span className="typing-dot typing-dot-delay-1" />
+      <span className="typing-dot typing-dot-delay-2" />
+    </div>
+  );
+}
+
 export default function ChatPanel({
   essay,
   essayCorpus = [],
@@ -384,7 +394,9 @@ export default function ChatPanel({
                       key={`${message.from}-${index}`}
                       className={message.from === "user" ? "ml-auto max-w-[84%] rounded-lg rounded-br-sm border border-sky-300/20 bg-sky-300/14 px-3 py-2.5 text-sm leading-6 text-sky-50" : "max-w-[88%] rounded-lg rounded-bl-sm border border-white/10 bg-white/7 px-3 py-2.5 text-sm leading-6 text-slate-200"}
                     >
-                      {message.from === "clarus" ? (
+                      {message.pending ? (
+                        <TypingIndicator label={t.loading} />
+                      ) : message.from === "clarus" ? (
                         <MarkdownMessage>{message.text}</MarkdownMessage>
                       ) : (
                         String(message.text || "")
@@ -397,7 +409,11 @@ export default function ChatPanel({
                       )}
                     </div>
                   ))}
-                  {loading && <p className="text-xs text-slate-500">{t.loading}</p>}
+                  {loading && !messages.some((message) => message.pending) && (
+                    <div className="max-w-[88%] rounded-lg rounded-bl-sm border border-white/10 bg-white/7 px-3 py-2.5">
+                      <TypingIndicator label={t.loading} />
+                    </div>
+                  )}
                   <div ref={bottomRef} />
                 </div>
               </div>
