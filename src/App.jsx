@@ -176,11 +176,7 @@ const copy = {
       readingTime: (minutes) => `${minutes} min lezen`,
       progress: (percent) => `${percent}% gelezen`,
       outline: "Opbouw",
-      featured: "Uitgelicht",
-      publishedCount: "In archief",
       showingCount: "In beeld",
-      subjectCount: "Themalijnen",
-      latestStart: "Nieuwste startpunt",
       clarusShortcutTitle: "Twijfel waar te beginnen?",
       clarusShortcutBody: "Laat Clarus je vraag lezen als route door het archief.",
       clarusShortcutAction: "Vraag Clarus om een ingang",
@@ -446,11 +442,7 @@ const copy = {
       readingTime: (minutes) => `${minutes} min read`,
       progress: (percent) => `${percent}% read`,
       outline: "Structure",
-      featured: "Featured",
-      publishedCount: "In archive",
       showingCount: "Showing",
-      subjectCount: "Theme lines",
-      latestStart: "Latest starting point",
       clarusShortcutTitle: "Unsure where to begin?",
       clarusShortcutBody: "Let Clarus read your question as a route through the archive.",
       clarusShortcutAction: "Ask Clarus for an entry point",
@@ -1330,8 +1322,6 @@ function EssaysOverviewPage({ language }) {
     [allPublishedEssays, language, search, selectedCategory]
   );
 
-  const featuredEssay = publishedEssays[0] || allPublishedEssays[0];
-  const featured = featuredEssay ? localizeEssay(featuredEssay, language) : null;
   const categoryCounts = useMemo(
     () =>
       CATEGORIES.map((category) => ({
@@ -1341,116 +1331,67 @@ function EssaysOverviewPage({ language }) {
       })),
     [allPublishedEssays, language]
   );
-  const activeSubjectCount = categoryCounts.filter((category) => category.count > 0).length;
   const clarusPromptUrl = `/clarus?prompt=${encodeURIComponent(t.essays.clarusShortcutPrompt)}`;
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
-      <div className="archive-console glow-surface mb-10 rounded-lg border border-white/10 bg-[#071126]/78 p-5 shadow-[0_28px_110px_rgba(0,0,0,0.34)] sm:p-6">
-        <div className="grid gap-7 lg:grid-cols-[minmax(0,1.15fr)_minmax(320px,0.85fr)]">
+      <div className="mb-8 rounded-lg border border-white/10 bg-[#071126]/62 p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-sm font-medium text-sky-200">{t.essays.eyebrow}</p>
             <h1 className="mt-2 text-4xl font-semibold text-white">{t.essays.title}</h1>
             <p className="mt-3 max-w-2xl text-slate-400">{t.essays.intro}</p>
+          </div>
+          <Link
+            to={clarusPromptUrl}
+            className="inline-flex items-center gap-2 rounded-md border border-sky-300/18 bg-sky-300/8 px-3 py-2 text-sm font-medium text-sky-100 transition hover:border-sky-300/38 hover:bg-sky-300/12"
+          >
+            <Sparkles size={15} />
+            {t.essays.clarusShortcutAction}
+          </Link>
+        </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{t.essays.publishedCount}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{allPublishedEssays.length}</p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{t.essays.showingCount}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{publishedEssays.length}</p>
-              </div>
-              <div className="rounded-md border border-white/10 bg-white/5 p-3">
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-500">{t.essays.subjectCount}</p>
-                <p className="mt-2 text-2xl font-semibold text-white">{activeSubjectCount}</p>
-              </div>
-            </div>
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(260px,0.55fr)_minmax(0,1fr)] lg:items-start">
+          <label className="relative block">
+            <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="field pl-10"
+              placeholder={t.essays.search}
+            />
+          </label>
 
-            <label className="relative mt-5 block w-full max-w-2xl">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="field pl-10"
-                placeholder={t.essays.search}
-              />
-            </label>
-
-            <Link
-              to={clarusPromptUrl}
-              className="clarus-prompt-card mt-5 flex max-w-2xl items-center justify-between gap-4 rounded-md border border-sky-300/18 bg-sky-300/8 px-4 py-3 text-left transition hover:border-sky-300/38 hover:bg-sky-300/12"
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => setSelectedCategory("all")}
+              className={cx(
+                "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
+                selectedCategory === "all"
+                  ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
+                  : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+              )}
             >
-              <span>
-                <span className="block text-sm font-semibold text-sky-100">{t.essays.clarusShortcutTitle}</span>
-                <span className="mt-1 block text-sm leading-6 text-slate-300">{t.essays.clarusShortcutBody}</span>
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-2 text-sm font-medium text-sky-100">
-                {t.essays.clarusShortcutAction}
-                <Sparkles size={16} />
-              </span>
-            </Link>
-
-            <div className="mt-5 flex flex-wrap gap-2">
+              <Filter size={15} />
+              {t.essays.all}
+              <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px]">{allPublishedEssays.length}</span>
+            </button>
+            {categoryCounts.map((category) => (
               <button
-                onClick={() => setSelectedCategory("all")}
+                key={category.id}
+                onClick={() => setSelectedCategory(category.id)}
                 className={cx(
                   "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
-                  selectedCategory === "all"
+                  selectedCategory === category.id
                     ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
                     : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
                 )}
               >
-                <Filter size={15} />
-                {t.essays.all}
-                <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px]">{allPublishedEssays.length}</span>
+                {category.label}
+                <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px]">{category.count}</span>
               </button>
-              {categoryCounts.map((category) => (
-                <button
-                  key={category.id}
-                  onClick={() => setSelectedCategory(category.id)}
-                  className={cx(
-                    "inline-flex items-center gap-2 rounded-md border px-3 py-2 text-sm transition",
-                    selectedCategory === category.id
-                      ? "border-sky-300/50 bg-sky-300/12 text-sky-100"
-                      : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
-                  )}
-                >
-                  {category.label}
-                  <span className="rounded bg-white/8 px-1.5 py-0.5 text-[11px]">{category.count}</span>
-                </button>
-              ))}
-            </div>
+            ))}
           </div>
-
-          {featuredEssay && featured && (
-            <Link
-              to={`/essays/${featuredEssay.id}`}
-              className="archive-feature group relative overflow-hidden rounded-lg border border-sky-300/18 bg-slate-950/45 p-5 transition hover:-translate-y-0.5 hover:border-sky-300/42"
-            >
-              <p className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-sky-200">
-                <Sparkles size={14} />
-                {t.essays.featured}
-              </p>
-              <h2 className="mt-5 text-2xl font-semibold leading-tight text-white">{featured.displayTitle}</h2>
-              <p className="mt-4 line-clamp-4 text-sm leading-6 text-slate-300">{featured.displayExcerpt}</p>
-              <div className="mt-5 flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                <span className="inline-flex items-center gap-1.5">
-                  <CalendarDays size={14} />
-                  {formatDate(featuredEssay.date, language)}
-                </span>
-                <span className="inline-flex items-center gap-1.5">
-                  <Tag size={14} />
-                  {t.essays.latestStart}
-                </span>
-              </div>
-              <span className="mt-6 inline-flex items-center gap-2 text-sm font-medium text-sky-100">
-                {t.actions.readEssay}
-                <ArrowRight size={15} className="transition group-hover:translate-x-0.5" />
-              </span>
-            </Link>
-          )}
         </div>
       </div>
 
