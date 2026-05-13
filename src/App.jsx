@@ -203,11 +203,11 @@ const copy = {
       ],
       emptyTitle: "Clarus heeft nog geen essayarchief",
       emptyBody: "Publiceer eerst essays, daarna kan Clarus lezers door het archief leiden.",
-      scopeTitle: "Geen algemene chatbot",
+      scopeTitle: "Een gids door het archief",
       scopeItems: [
-        "Clarus raadt essays aan en verduidelijkt begrippen uit het archief.",
-        "Clarus weigert alledaagse taken zoals code, recepten, reizen of marketingtekst.",
-        "Clarus hoort kort, precies en met duidelijke grenzen te antwoorden.",
+        "Clarus leest je vraag als een ingang tot het essayarchief.",
+        "Hij zoekt naar verwante begrippen, bezwaren en thematische lijnen.",
+        "Zijn antwoorden blijven smal: welke tekst past, waarom die past en waar je kunt beginnen.",
       ],
       archiveTitle: "Beschikbaar archief",
     },
@@ -464,11 +464,11 @@ const copy = {
       ],
       emptyTitle: "Clarus has no essay archive yet",
       emptyBody: "Publish essays first, then Clarus can guide readers through the archive.",
-      scopeTitle: "Not a general chatbot",
+      scopeTitle: "A Guide Through The Archive",
       scopeItems: [
-        "Clarus recommends essays and clarifies concepts from the archive.",
-        "Clarus refuses everyday tasks such as code, recipes, travel or marketing copy.",
-        "Clarus should answer briefly, precisely and with explicit boundaries.",
+        "Clarus reads your question as an entry point into the essay archive.",
+        "It looks for related concepts, objections and thematic lines.",
+        "Its answers stay narrow: which text fits, why it fits and where to begin.",
       ],
       archiveTitle: "Available archive",
     },
@@ -1987,7 +1987,7 @@ function ClarusPage({ language }) {
             <div className="mt-6 border-t border-white/10 pt-5">
               <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">{t.clarus.archiveTitle}</p>
               <div className="mt-3 max-h-64 space-y-2 overflow-y-auto pr-1">
-                {corpus.slice(0, 8).map((essay) => (
+                {corpus.map((essay) => (
                   <Link
                     key={essay.id}
                     to={essay.path}
