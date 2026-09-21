@@ -40,7 +40,8 @@ const editorCopy = {
     uploading: "Afbeelding uploaden...",
     uploadError: "Afbeelding uploaden is mislukt.",
     mediaPanel: "Afbeelding bewerken",
-    mediaHint: "Selecteer een afbeelding in de tekst om formaat, vorm en plaatsing te wijzigen.",
+    mediaHint:
+      "Selecteer een afbeelding in de tekst om formaat, vorm en plaatsing te wijzigen.",
     width: "Breedte",
     height: "Hoogte",
     heightAuto: "0 is auto",
@@ -73,7 +74,8 @@ const editorCopy = {
     uploading: "Uploading image...",
     uploadError: "Image upload failed.",
     mediaPanel: "Edit image",
-    mediaHint: "Select an image in the text to adjust size, shape and placement.",
+    mediaHint:
+      "Select an image in the text to adjust size, shape and placement.",
     width: "Width",
     height: "Height",
     heightAuto: "0 is auto",
@@ -121,7 +123,8 @@ const EditableImage = Image.extend({
     };
   },
   renderHTML({ HTMLAttributes }) {
-    const { align, width, height, radius, objectFit, style, ...attributes } = HTMLAttributes;
+    const { align, width, height, radius, objectFit, style, ...attributes } =
+      HTMLAttributes;
     const margin =
       align === "right"
         ? "margin-left:auto;margin-right:0;"
@@ -149,8 +152,18 @@ const EditableImage = Image.extend({
 
 function getToolbarItems(t) {
   return [
-    { name: t.bold, icon: Bold, action: (editor) => editor.chain().focus().toggleBold().run(), active: "bold" },
-    { name: t.italic, icon: Italic, action: (editor) => editor.chain().focus().toggleItalic().run(), active: "italic" },
+    {
+      name: t.bold,
+      icon: Bold,
+      action: (editor) => editor.chain().focus().toggleBold().run(),
+      active: "bold",
+    },
+    {
+      name: t.italic,
+      icon: Italic,
+      action: (editor) => editor.chain().focus().toggleItalic().run(),
+      active: "italic",
+    },
     {
       name: t.underline,
       icon: UnderlineIcon,
@@ -160,13 +173,15 @@ function getToolbarItems(t) {
     {
       name: t.h1,
       icon: Heading1,
-      action: (editor) => editor.chain().focus().toggleHeading({ level: 1 }).run(),
+      action: (editor) =>
+        editor.chain().focus().toggleHeading({ level: 1 }).run(),
       isActive: (editor) => editor.isActive("heading", { level: 1 }),
     },
     {
       name: t.h2,
       icon: Heading2,
-      action: (editor) => editor.chain().focus().toggleHeading({ level: 2 }).run(),
+      action: (editor) =>
+        editor.chain().focus().toggleHeading({ level: 2 }).run(),
       isActive: (editor) => editor.isActive("heading", { level: 2 }),
     },
     {
@@ -199,7 +214,12 @@ function escapeHTML(value = "") {
     .replace(/'/g, "&#039;");
 }
 
-export default function TipTapEditor({ value, onChange, language = "nl", onUploadImage }) {
+export default function TipTapEditor({
+  value,
+  onChange,
+  language = "nl",
+  onUploadImage,
+}) {
   const t = editorCopy[language] || editorCopy.nl;
   const fileInputRef = useRef(null);
   const lastEmittedValue = useRef(value || "");
@@ -208,21 +228,33 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
   const [selectedImage, setSelectedImage] = useState(null);
 
   const editor = useEditor({
-    extensions: [StarterKit, Underline, EditableImage.configure({ inline: false, allowBase64: false })],
+    extensions: [
+      StarterKit,
+      Underline,
+      EditableImage.configure({ inline: false, allowBase64: false }),
+    ],
     content: value || "",
     onUpdate({ editor: activeEditor }) {
       const html = activeEditor.getHTML();
       lastEmittedValue.current = html;
       onChange(html);
-      setSelectedImage(activeEditor.isActive("image") ? activeEditor.getAttributes("image") : null);
+      setSelectedImage(
+        activeEditor.isActive("image")
+          ? activeEditor.getAttributes("image")
+          : null,
+      );
     },
     onSelectionUpdate({ editor: activeEditor }) {
-      setSelectedImage(activeEditor.isActive("image") ? activeEditor.getAttributes("image") : null);
+      setSelectedImage(
+        activeEditor.isActive("image")
+          ? activeEditor.getAttributes("image")
+          : null,
+      );
     },
     editorProps: {
       attributes: {
         class:
-          "prose prose-invert min-h-[360px] max-w-none rounded-lg border border-white/10 bg-slate-950/70 p-4 text-base text-slate-100 outline-none prose-headings:text-white prose-a:text-sky-200 prose-img:my-6 focus:border-sky-300/35",
+          "prose prose-editorial min-h-[360px] max-w-none rounded-lg border border-line bg-surface p-4 text-base text-ink outline-none prose-headings:text-ink prose-a:text-accent prose-img:my-6 focus:border-accent/30",
       },
     },
   });
@@ -265,7 +297,9 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
     try {
       setUploading(true);
       setUploadError("");
-      const url = onUploadImage ? await onUploadImage(file) : URL.createObjectURL(file);
+      const url = onUploadImage
+        ? await onUploadImage(file)
+        : URL.createObjectURL(file);
       insertImage(url, file.name);
     } catch (err) {
       console.error("Image upload failed:", err);
@@ -298,15 +332,19 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
   };
 
   if (!editor) {
-    return <div className="min-h-[360px] rounded-lg border border-white/10 bg-slate-950/70" />;
+    return (
+      <div className="min-h-[360px] rounded-lg border border-line bg-surface" />
+    );
   }
 
   return (
     <div>
-      <div className="mb-2 flex flex-wrap gap-2 rounded-lg border border-white/10 bg-slate-950/55 p-2">
+      <div className="mb-2 flex flex-wrap gap-2 rounded-lg border border-line bg-surface p-2">
         {getToolbarItems(t).map((item) => {
           const Icon = item.icon;
-          const active = item.isActive ? item.isActive(editor) : editor.isActive(item.active);
+          const active = item.isActive
+            ? item.isActive(editor)
+            : editor.isActive(item.active);
           return (
             <button
               key={item.name}
@@ -314,8 +352,8 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
               onClick={() => item.action(editor)}
               className={`grid h-9 w-9 place-items-center rounded-md border transition ${
                 active
-                  ? "border-sky-300/45 bg-sky-300/14 text-sky-100"
-                  : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30 hover:text-white"
+                  ? "border-accent/30 bg-accent/10 text-accent"
+                  : "border-line bg-wash text-muted hover:border-accent/30 hover:text-ink"
               }`}
               aria-label={item.name}
               title={item.name}
@@ -324,11 +362,11 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
             </button>
           );
         })}
-        <span className="mx-1 h-9 w-px bg-white/10" />
+        <span className="mx-1 h-9 w-px bg-wash" />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-wash px-3 text-sm text-muted transition hover:border-accent/30 hover:text-ink"
           disabled={uploading}
         >
           <ImagePlus size={16} />
@@ -337,29 +375,35 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
         <button
           type="button"
           onClick={insertImageUrl}
-          className="inline-flex h-9 items-center gap-2 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white"
+          className="inline-flex h-9 items-center gap-2 rounded-md border border-line bg-wash px-3 text-sm text-muted transition hover:border-accent/30 hover:text-ink"
         >
           <Link size={15} />
           {t.url}
         </button>
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleUpload} />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={handleUpload}
+        />
       </div>
 
       {uploadError && (
-        <p className="mb-2 rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-100">
+        <p className="mb-2 rounded-md border border-red-300/20 bg-red-300/10 px-3 py-2 text-sm text-red-300">
           {uploadError}
         </p>
       )}
 
-      <div className="mb-2 rounded-lg border border-white/10 bg-slate-950/55 p-3">
-        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-200">
+      <div className="mb-2 rounded-lg border border-line bg-surface p-3">
+        <div className="mb-3 flex items-center gap-2 text-sm font-medium text-ink">
           <SlidersHorizontal size={16} />
           {t.mediaPanel}
         </div>
         {selectedImage ? (
           <div className="grid gap-3 lg:grid-cols-12">
             <label className="space-y-1 lg:col-span-3">
-              <span className="flex items-center gap-1 text-xs text-slate-400">
+              <span className="flex items-center gap-1 text-xs text-muted">
                 <Maximize2 size={13} />
                 {t.width}
               </span>
@@ -369,33 +413,46 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
                 max="100"
                 step="5"
                 value={Number.parseInt(selectedImage.width, 10) || 100}
-                onChange={(event) => updateImage({ width: `${event.target.value}%` })}
+                onChange={(event) =>
+                  updateImage({ width: `${event.target.value}%` })
+                }
                 className="w-full accent-sky-300"
               />
             </label>
             <label className="space-y-1 lg:col-span-2">
-              <span className="text-xs text-slate-400">{t.height}</span>
+              <span className="text-xs text-muted">{t.height}</span>
               <input
                 type="number"
                 min="0"
                 max="1400"
-                value={selectedImage.height === "auto" ? 0 : Number.parseInt(selectedImage.height, 10) || 0}
+                value={
+                  selectedImage.height === "auto"
+                    ? 0
+                    : Number.parseInt(selectedImage.height, 10) || 0
+                }
                 onChange={(event) =>
-                  updateImage({ height: Number(event.target.value) <= 0 ? "auto" : `${event.target.value}px` })
+                  updateImage({
+                    height:
+                      Number(event.target.value) <= 0
+                        ? "auto"
+                        : `${event.target.value}px`,
+                  })
                 }
                 className="field py-2"
                 title={t.heightAuto}
               />
             </label>
             <label className="space-y-1 lg:col-span-2">
-              <span className="flex items-center gap-1 text-xs text-slate-400">
+              <span className="flex items-center gap-1 text-xs text-muted">
                 <Circle size={12} />
                 {t.shape}
               </span>
               <select
                 className="field py-2"
                 value={selectedImage.radius || "8px"}
-                onChange={(event) => updateImage({ radius: event.target.value })}
+                onChange={(event) =>
+                  updateImage({ radius: event.target.value })
+                }
               >
                 <option value="0px">{t.rectangle}</option>
                 <option value="8px">{t.rounded}</option>
@@ -403,18 +460,20 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
               </select>
             </label>
             <label className="space-y-1 lg:col-span-2">
-              <span className="text-xs text-slate-400">{t.objectFit}</span>
+              <span className="text-xs text-muted">{t.objectFit}</span>
               <select
                 className="field py-2"
                 value={selectedImage.objectFit || "cover"}
-                onChange={(event) => updateImage({ objectFit: event.target.value })}
+                onChange={(event) =>
+                  updateImage({ objectFit: event.target.value })
+                }
               >
                 <option value="cover">{t.cover}</option>
                 <option value="contain">{t.contain}</option>
               </select>
             </label>
             <div className="space-y-1 lg:col-span-3">
-              <span className="text-xs text-slate-400">{t.alignCenter}</span>
+              <span className="text-xs text-muted">{t.alignCenter}</span>
               <div className="flex gap-2">
                 {[
                   { value: "left", icon: AlignLeft, label: t.alignLeft },
@@ -429,8 +488,8 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
                       onClick={() => updateImage({ align: option.value })}
                       className={`grid h-10 flex-1 place-items-center rounded-md border transition ${
                         selectedImage.align === option.value
-                          ? "border-sky-300/45 bg-sky-300/14 text-sky-100"
-                          : "border-white/10 bg-white/5 text-slate-300 hover:border-sky-300/30"
+                          ? "border-accent/30 bg-accent/10 text-accent"
+                          : "border-line bg-wash text-muted hover:border-accent/30"
                       }`}
                       aria-label={option.label}
                       title={option.label}
@@ -442,7 +501,7 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
               </div>
             </div>
             <label className="space-y-1 lg:col-span-5">
-              <span className="flex items-center gap-1 text-xs text-slate-400">
+              <span className="flex items-center gap-1 text-xs text-muted">
                 <Type size={12} />
                 {t.alt}
               </span>
@@ -453,7 +512,7 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
               />
             </label>
             <label className="space-y-1 lg:col-span-5">
-              <span className="text-xs text-slate-400">{t.caption}</span>
+              <span className="text-xs text-muted">{t.caption}</span>
               <input
                 className="field py-2"
                 value={selectedImage.title || ""}
@@ -463,13 +522,13 @@ export default function TipTapEditor({ value, onChange, language = "nl", onUploa
             <button
               type="button"
               onClick={insertCaption}
-              className="self-end rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300 transition hover:border-sky-300/30 hover:text-white lg:col-span-2"
+              className="self-end rounded-md border border-line bg-wash px-3 py-2 text-sm text-muted transition hover:border-accent/30 hover:text-ink lg:col-span-2"
             >
               {t.insertCaption}
             </button>
           </div>
         ) : (
-          <p className="text-sm text-slate-500">{t.mediaHint}</p>
+          <p className="text-sm text-muted">{t.mediaHint}</p>
         )}
       </div>
 
